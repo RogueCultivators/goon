@@ -1,0 +1,21 @@
+package {{.ModuleName}}
+
+import (
+	"github.com/gin-gonic/gin"
+)
+
+// RegisterRoutes 注册 {{.CapitalizedName}} 模块的路由
+func RegisterRoutes(api *gin.RouterGroup) {
+	repo := NewRepository()
+	service := NewService(repo)
+	handler := NewHandler(service)
+
+	{{.ModuleName}}Group := api.Group("/{{.ModuleName}}")
+	{
+		{{.ModuleName}}Group.GET("", handler.List)
+		{{.ModuleName}}Group.GET("/:id", handler.Get)
+		{{.ModuleName}}Group.POST("", handler.Create)
+		{{.ModuleName}}Group.PUT("/:id", handler.Update)
+		{{.ModuleName}}Group.DELETE("/:id", handler.Delete)
+	}
+}

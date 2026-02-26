@@ -1,0 +1,121 @@
+package logger
+
+import (
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+)
+
+var log *slog.Logger
+
+// Config 日志配置
+type Config struct {
+	Level      string // debug, info, warn, error
+	Format     string // json, text
+	Output     string // console, file, both
+	FilePath   string // 日志文件路径
+	AddSource  bool   // 是否添加源码位置
+}
+
+// Init 初始化日志
+func Init(cfg *Config) error {
+	// 设置日志级别
+	var level slog.Level
+	switch cfg.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	// 设置处理器选项
+	opts := &slog.HandlerOptions{
+		Level:     level,
+		AddSource: cfg.AddSource,
+	}
+
+	// 确定输出目标
+	var writer io.Writer
+	switch cfg.Output {
+	case "console":
+		writer = os.Stdout
+	case "file":
+		if cfg.FilePath == "" {
+			cfg.FilePath = "logs/app.log"
+		}
+		// 创建日志目录
+		if err := os.MkdirAll(filepath.Dir(cfg.FilePath), 0755); err != nil {
+			return err
+		}
+		file, err := os.OpenFile(cfg.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			return err
+		}
+		writer = file
+	case "both":
+		if cfg.FilePath == "" {
+			cfg.FilePath = "logs/app.log"
+		}
+		// 创建日志目录
+		if err := os.MkdirAll(filepath.Dir(cfg.FilePath), 0755); err != nil {
+			return err
+		}
+		file, err := os.OpenFile(cfg.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			return err
+		}
+		writer = io.MultiWriter(os.Stdout, file)
+	default:
+		writer = os.Stdout
+	}
+
+	// 创建处理器
+	var handler slog.Handler
+	if cfg.Format == "json" {
+		handler = slog.NewJSONHandler(writer, opts)
+	} else {
+		handler = slog.NewTextHandler(writer, opts)
+	}
+
+	log = slog.New(handler)
+	slog.SetDefault(log)
+
+	return nil
+}
+
+// Debug 输出 debug 级别日志
+func Debug(msg string, args ...any) {
+	log.Debug(msg, args...)
+}
+
+// Info 输出 info 级别日志
+func Info(msg string, args ...any) {
+	log.Info(msg, args...)
+}
+
+// Warn 输出 warn 级别日志
+func Warn(msg string, args ...any) {
+	log.Warn(msg, args...)
+}
+
+// Error 输出 error 级别日志
+func Error(msg string, args ...any) {
+	log.Error(msg, args...)
+}
+
+// With 创建带有额外字段的 logger
+func With(args ...any) *slog.Logger {
+	return log.With(args...)
+}
+
+// GetLogger 获取 logger 实例
+func GetLogger() *slog.Logger {
+	return log
+}

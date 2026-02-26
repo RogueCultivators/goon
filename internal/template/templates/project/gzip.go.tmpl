@@ -1,0 +1,111 @@
+package middleware
+
+import (
+	"compress/gzip"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/gin-gonic/gin"
+)
+
+type gzipWriter struct {
+	gin.ResponseWriter
+	writer *gzip.Writer
+}
+
+func (g *gzipWriter) Write(data []byte) (int, error) {
+	return g.writer.Write(data)
+}
+
+func (g *gzipWriter) WriteString(s string) (int, error) {
+	return g.writer.Write([]byte(s))
+}
+
+// Gzip Gzip压缩中间件
+func Gzip() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 检查客户端是否支持gzip
+		if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") {
+			c.Next()
+			return
+		}
+
+		// 设置响应头
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+
+		// 创建gzip writer
+		gz := gzip.NewWriter(c.Writer)
+		defer gz.Close()
+
+		// 包装ResponseWriter
+		c.Writer = &gzipWriter{
+			ResponseWriter: c.Writer,
+			writer:         gz,
+		}
+
+		c.Next()
+	}
+}
+
+// GzipWithLevel 带压缩级别的Gzip中间件
+func GzipWithLevel(level int) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") {
+			c.Next()
+			return
+		}
+
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+
+		gz, err := gzip.NewWriterLevel(c.Writer, level)
+		if err != nil {
+			c.Next()
+			return
+		}
+		defer gz.Close()
+
+		c.Writer = &gzipWriter{
+			ResponseWriter: c.Writer,
+			writer:         gz,
+		}
+
+		c.Next()
+	}
+}
+
+// GzipExclude 排除特定路径的Gzip中间件
+func GzipExclude(excludePaths ...string) gin.HandlerFunc {
+	excludeMap := make(map[string]bool)
+	for _, path := range excludePaths {
+		excludeMap[path] = true
+	}
+
+	return func(c *gin.Context) {
+		// 检查是否在排除列表中
+		if excludeMap[c.Request.URL.Path] {
+			c.Next()
+			return
+		}
+
+		if !strings.Contains(c.GetHeader("Accept-Encoding"), "gzip") {
+			c.Next()
+			return
+		}
+
+		c.Header("Content-Encoding", "gzip")
+		c.Header("Vary", "Accept-Encoding")
+
+		gz := gzip.NewWriter(c.Writer)
+		defer gz.Close()
+
+		c.Writer = &gzipWriter{
+			ResponseWriter: c.Writer,
+			writer:         gz,
+		}
+
+		c.Next()
+	}
+}

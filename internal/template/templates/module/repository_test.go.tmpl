@@ -1,0 +1,42 @@
+package {{.ModuleName}}
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRepositoryFindAll(t *testing.T) {
+	// TODO: 实现数据库测试
+	// 这里需要设置测试数据库
+	t.Skip("需要数据库连接")
+}
+
+func TestRepositoryFindByID(t *testing.T) {
+	// TODO: 实现数据库测试
+	t.Skip("需要数据库连接")
+}
+
+func TestRepositoryCreate(t *testing.T) {
+	// TODO: 实现数据库测试
+	t.Skip("需要数据库连接")
+}
+
+func TestRepositoryUpdate(t *testing.T) {
+	// TODO: 实现数据库测试
+	t.Skip("需要数据库连接")
+}
+
+func TestRepositoryDelete(t *testing.T) {
+	// TODO: 实现数据库测试
+	t.Skip("需要数据库连接")
+}
+
+func TestModel{{.CapitalizedName}}(t *testing.T) {
+	entity := &{{.CapitalizedName}}{
+		ID: 1,
+	}
+
+	assert.NotNil(t, entity)
+	assert.Equal(t, uint(1), entity.ID)
+}

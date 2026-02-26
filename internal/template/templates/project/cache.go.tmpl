@@ -1,0 +1,228 @@
+package cache
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+var (
+	redisClient *redis.Client
+	memCache    *MemoryCache
+)
+
+// Config 缓存配置
+type Config struct {
+	Type     string // redis, memory
+	Redis    RedisConfig
+	Memory   MemoryConfig
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Password string
+	DB       int
+}
+
+type MemoryConfig struct {
+	MaxSize        int           // 最大缓存数量
+	CleanupInterval time.Duration // 清理间隔
+}
+
+// Init 初始化缓存
+func Init(cfg *Config) error {
+	switch cfg.Type {
+	case "redis":
+		redisClient = redis.NewClient(&redis.Options{
+			Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			return fmt.Errorf("连接Redis失败: %w", err)
+		}
+
+	case "memory":
+		memCache = NewMemoryCache(cfg.Memory.MaxSize, cfg.Memory.CleanupInterval)
+
+	default:
+		return fmt.Errorf("不支持的缓存类型: %s", cfg.Type)
+	}
+
+	return nil
+}
+
+// Set 设置缓存
+func Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	if redisClient != nil {
+		data, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		return redisClient.Set(ctx, key, data, expiration).Err()
+	}
+
+	if memCache != nil {
+		return memCache.Set(key, value, expiration)
+	}
+
+	return fmt.Errorf("缓存未初始化")
+}
+
+// Get 获取缓存
+func Get(ctx context.Context, key string, dest interface{}) error {
+	if redisClient != nil {
+		data, err := redisClient.Get(ctx, key).Bytes()
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, dest)
+	}
+
+	if memCache != nil {
+		return memCache.Get(key, dest)
+	}
+
+	return fmt.Errorf("缓存未初始化")
+}
+
+// Delete 删除缓存
+func Delete(ctx context.Context, keys ...string) error {
+	if redisClient != nil {
+		return redisClient.Del(ctx, keys...).Err()
+	}
+
+	if memCache != nil {
+		for _, key := range keys {
+			memCache.Delete(key)
+		}
+		return nil
+	}
+
+	return fmt.Errorf("缓存未初始化")
+}
+
+// Exists 检查缓存是否存在
+func Exists(ctx context.Context, key string) (bool, error) {
+	if redisClient != nil {
+		count, err := redisClient.Exists(ctx, key).Result()
+		return count > 0, err
+	}
+
+	if memCache != nil {
+		return memCache.Exists(key), nil
+	}
+
+	return false, fmt.Errorf("缓存未初始化")
+}
+
+// MemoryCache 内存缓存实现
+type MemoryCache struct {
+	items   map[string]*cacheItem
+	mu      sync.RWMutex
+	maxSize int
+}
+
+type cacheItem struct {
+	value      interface{}
+	expiration time.Time
+}
+
+func NewMemoryCache(maxSize int, cleanupInterval time.Duration) *MemoryCache {
+	mc := &MemoryCache{
+		items:   make(map[string]*cacheItem),
+		maxSize: maxSize,
+	}
+
+	// 启动清理协程
+	go mc.cleanup(cleanupInterval)
+
+	return mc
+}
+
+func (mc *MemoryCache) Set(key string, value interface{}, expiration time.Duration) error {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
+	// 检查容量
+	if len(mc.items) >= mc.maxSize {
+		// 简单的LRU：删除第一个过期的项
+		for k, item := range mc.items {
+			if time.Now().After(item.expiration) {
+				delete(mc.items, k)
+				break
+			}
+		}
+	}
+
+	mc.items[key] = &cacheItem{
+		value:      value,
+		expiration: time.Now().Add(expiration),
+	}
+
+	return nil
+}
+
+func (mc *MemoryCache) Get(key string, dest interface{}) error {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	item, exists := mc.items[key]
+	if !exists {
+		return fmt.Errorf("缓存不存在")
+	}
+
+	if time.Now().After(item.expiration) {
+		return fmt.Errorf("缓存已过期")
+	}
+
+	// 使用类型断言复制值
+	data, err := json.Marshal(item.value)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, dest)
+}
+
+func (mc *MemoryCache) Delete(key string) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	delete(mc.items, key)
+}
+
+func (mc *MemoryCache) Exists(key string) bool {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+
+	item, exists := mc.items[key]
+	if !exists {
+		return false
+	}
+
+	return time.Now().Before(item.expiration)
+}
+
+func (mc *MemoryCache) cleanup(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		mc.mu.Lock()
+		now := time.Now()
+		for key, item := range mc.items {
+			if now.After(item.expiration) {
+				delete(mc.items, key)
+			}
+		}
+		mc.mu.Unlock()
+	}
+}

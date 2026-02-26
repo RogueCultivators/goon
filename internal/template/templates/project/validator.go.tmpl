@@ -1,0 +1,75 @@
+package validator
+
+import (
+	"regexp"
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+)
+
+var validate *validator.Validate
+
+// Init 初始化验证器
+func Init() {
+	validate = validator.New()
+
+	// 注册自定义验证器
+	_ = validate.RegisterValidation("mobile", validateMobile)
+	_ = validate.RegisterValidation("username", validateUsername)
+}
+
+// Validate 验证结构体
+func Validate(data interface{}) error {
+	if validate == nil {
+		Init()
+	}
+	return validate.Struct(data)
+}
+
+// validateMobile 验证手机号
+func validateMobile(fl validator.FieldLevel) bool {
+	mobile := fl.Field().String()
+	pattern := `^1[3-9]\d{9}$`
+	matched, _ := regexp.MatchString(pattern, mobile)
+	return matched
+}
+
+// validateUsername 验证用户名（4-20位字母数字下划线）
+func validateUsername(fl validator.FieldLevel) bool {
+	username := fl.Field().String()
+	if len(username) < 4 || len(username) > 20 {
+		return false
+	}
+	pattern := `^[a-zA-Z0-9_]+$`
+	matched, _ := regexp.MatchString(pattern, username)
+	return matched
+}
+
+// GetValidationErrors 获取友好的验证错误信息
+func GetValidationErrors(err error) map[string]string {
+	errors := make(map[string]string)
+
+	if validationErrors, ok := err.(validator.ValidationErrors); ok {
+		for _, e := range validationErrors {
+			field := strings.ToLower(e.Field())
+			switch e.Tag() {
+			case "required":
+				errors[field] = field + " 是必填项"
+			case "email":
+				errors[field] = field + " 格式不正确"
+			case "min":
+				errors[field] = field + " 长度不能小于 " + e.Param()
+			case "max":
+				errors[field] = field + " 长度不能大于 " + e.Param()
+			case "mobile":
+				errors[field] = "手机号格式不正确"
+			case "username":
+				errors[field] = "用户名格式不正确（4-20位字母数字下划线）"
+			default:
+				errors[field] = field + " 验证失败"
+			}
+		}
+	}
+
+	return errors
+}

@@ -1,0 +1,115 @@
+package {{.ModuleName}}
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+// Mock{{.CapitalizedName}}Repository 是 {{.CapitalizedName}}Repository 的 mock
+type Mock{{.CapitalizedName}}Repository struct {
+	mock.Mock
+}
+
+func (m *Mock{{.CapitalizedName}}Repository) FindAll() ([]{{.CapitalizedName}}, error) {
+	args := m.Called()
+	return args.Get(0).([]{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Repository) FindByID(id uint) (*{{.CapitalizedName}}, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Repository) Create(entity *{{.CapitalizedName}}) error {
+	args := m.Called(entity)
+	return args.Error(0)
+}
+
+func (m *Mock{{.CapitalizedName}}Repository) Update(entity *{{.CapitalizedName}}) error {
+	args := m.Called(entity)
+	return args.Error(0)
+}
+
+func (m *Mock{{.CapitalizedName}}Repository) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func TestServiceList(t *testing.T) {
+	mockRepo := new(Mock{{.CapitalizedName}}Repository)
+	service := NewService(mockRepo)
+
+	expected := []{{.CapitalizedName}}{
+		{ID: 1},
+		{ID: 2},
+	}
+	mockRepo.On("FindAll").Return(expected, nil)
+
+	result, err := service.List()
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestServiceGet(t *testing.T) {
+	mockRepo := new(Mock{{.CapitalizedName}}Repository)
+	service := NewService(mockRepo)
+
+	expected := &{{.CapitalizedName}}{ID: 1}
+	mockRepo.On("FindByID", uint(1)).Return(expected, nil)
+
+	result, err := service.Get(1)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestServiceCreate(t *testing.T) {
+	mockRepo := new(Mock{{.CapitalizedName}}Repository)
+	service := NewService(mockRepo)
+
+	req := &Create{{.CapitalizedName}}Request{}
+	mockRepo.On("Create", mock.AnythingOfType("*{{.ModuleName}}.{{.CapitalizedName}}")).Return(nil)
+
+	result, err := service.Create(req)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestServiceUpdate(t *testing.T) {
+	mockRepo := new(Mock{{.CapitalizedName}}Repository)
+	service := NewService(mockRepo)
+
+	existing := &{{.CapitalizedName}}{ID: 1}
+	req := &Update{{.CapitalizedName}}Request{}
+
+	mockRepo.On("FindByID", uint(1)).Return(existing, nil)
+	mockRepo.On("Update", mock.AnythingOfType("*{{.ModuleName}}.{{.CapitalizedName}}")).Return(nil)
+
+	result, err := service.Update(1, req)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestServiceDelete(t *testing.T) {
+	mockRepo := new(Mock{{.CapitalizedName}}Repository)
+	service := NewService(mockRepo)
+
+	mockRepo.On("Delete", uint(1)).Return(nil)
+
+	err := service.Delete(1)
+
+	assert.NoError(t, err)
+	mockRepo.AssertExpectations(t)
+}

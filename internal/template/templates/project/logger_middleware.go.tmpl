@@ -1,0 +1,41 @@
+package middleware
+
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+func Logger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
+
+		c.Next()
+
+		latency := time.Since(start)
+		clientIP := c.ClientIP()
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		requestID, _ := c.Get(RequestIDKey)
+
+		if raw != "" {
+			path = path + "?" + raw
+		}
+
+		c.Writer.Header().Set("X-Response-Time", latency.String())
+
+		// 日志输出（可以集成自定义日志系统）
+		// 示例格式: [RequestID] Method Path Status Latency ClientIP
+		if rid, ok := requestID.(string); ok {
+			_ = rid // 可以在这里使用 logger 包记录日志
+		}
+
+		_ = clientIP
+		_ = method
+		_ = statusCode
+		_ = path
+		_ = latency
+	}
+}

@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: {{.ProjectName}}-app
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+    volumes:
+      - ./config.yaml:/root/config.yaml
+      - ./logs:/root/logs
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: {{.ProjectName}}-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: {{.ProjectName}}
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: {{.ProjectName}}-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+
+networks:
+  app-network:
+    driver: bridge

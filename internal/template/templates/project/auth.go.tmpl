@@ -1,0 +1,111 @@
+package middleware
+
+import (
+	"net/http"
+	"strings"
+
+	"{{.ModuleName}}/pkg/jwt"
+
+	"github.com/gin-gonic/gin"
+)
+
+const (
+	AuthorizationHeader = "Authorization"
+	BearerPrefix        = "Bearer "
+	UserIDKey           = "user_id"
+	UsernameKey         = "username"
+)
+
+// JWTAuth JWT认证中间件
+func JWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader(AuthorizationHeader)
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    http.StatusUnauthorized,
+				"message": "缺少认证令牌",
+			})
+			c.Abort()
+			return
+		}
+
+		// 检查Bearer前缀
+		if !strings.HasPrefix(authHeader, BearerPrefix) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    http.StatusUnauthorized,
+				"message": "认证令牌格式错误",
+			})
+			c.Abort()
+			return
+		}
+
+		// 提取token
+		tokenString := strings.TrimPrefix(authHeader, BearerPrefix)
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    http.StatusUnauthorized,
+				"message": "认证令牌为空",
+			})
+			c.Abort()
+			return
+		}
+
+		// 解析token
+		claims, err := jwt.ParseToken(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"code":    http.StatusUnauthorized,
+				"message": "认证令牌无效或已过期",
+			})
+			c.Abort()
+			return
+		}
+
+		// 将用户信息存入上下文
+		c.Set(UserIDKey, claims.UserID)
+		c.Set(UsernameKey, claims.Username)
+
+		c.Next()
+	}
+}
+
+// OptionalJWTAuth 可选的JWT认证中间件（不强制要求token）
+func OptionalJWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader(AuthorizationHeader)
+		if authHeader == "" {
+			c.Next()
+			return
+		}
+
+		if strings.HasPrefix(authHeader, BearerPrefix) {
+			tokenString := strings.TrimPrefix(authHeader, BearerPrefix)
+			if claims, err := jwt.ParseToken(tokenString); err == nil {
+				c.Set(UserIDKey, claims.UserID)
+				c.Set(UsernameKey, claims.Username)
+			}
+		}
+
+		c.Next()
+	}
+}
+
+// GetUserID 从上下文获取用户ID
+func GetUserID(c *gin.Context) (uint, bool) {
+	if userID, exists := c.Get(UserIDKey); exists {
+		if id, ok := userID.(uint); ok {
+			return id, true
+		}
+	}
+	return 0, false
+}
+
+// GetUsername 从上下文获取用户名
+func GetUsername(c *gin.Context) (string, bool) {
+	if username, exists := c.Get(UsernameKey); exists {
+		if name, ok := username.(string); ok {
+			return name, true
+		}
+	}
+	return "", false
+}

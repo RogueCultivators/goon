@@ -1,0 +1,140 @@
+package testutil
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+)
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
+
+// MockRequest 模拟HTTP请求
+type MockRequest struct {
+	Method      string
+	URL         string
+	Body        interface{}
+	Headers     map[string]string
+	QueryParams map[string]string
+}
+
+// PerformRequest 执行模拟请求
+func PerformRequest(r *gin.Engine, req *MockRequest) *httptest.ResponseRecorder {
+	var bodyReader io.Reader
+	if req.Body != nil {
+		jsonData, _ := json.Marshal(req.Body)
+		bodyReader = bytes.NewBuffer(jsonData)
+	}
+
+	httpReq := httptest.NewRequest(req.Method, req.URL, bodyReader)
+
+	// 设置请求头
+	if req.Headers != nil {
+		for key, value := range req.Headers {
+			httpReq.Header.Set(key, value)
+		}
+	}
+
+	// 设置查询参数
+	if req.QueryParams != nil {
+		q := httpReq.URL.Query()
+		for key, value := range req.QueryParams {
+			q.Add(key, value)
+		}
+		httpReq.URL.RawQuery = q.Encode()
+	}
+
+	// 如果有body，设置Content-Type
+	if req.Body != nil {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httpReq)
+
+	return w
+}
+
+// AssertJSON 断言JSON响应
+func AssertJSON(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, expectedBody interface{}) {
+	assert.Equal(t, expectedStatus, w.Code)
+	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+
+	if expectedBody != nil {
+		var actualBody interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &actualBody)
+		assert.NoError(t, err)
+
+		expectedJSON, _ := json.Marshal(expectedBody)
+		var expectedMap interface{}
+		json.Unmarshal(expectedJSON, &expectedMap)
+
+		assert.Equal(t, expectedMap, actualBody)
+	}
+}
+
+// AssertSuccess 断言成功响应
+func AssertSuccess(t *testing.T, w *httptest.ResponseRecorder) {
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, float64(0), response["code"])
+}
+
+// AssertError 断言错误响应
+func AssertError(t *testing.T, w *httptest.ResponseRecorder, expectedStatus int, expectedMessage string) {
+	assert.Equal(t, expectedStatus, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	if expectedMessage != "" {
+		assert.Equal(t, expectedMessage, response["message"])
+	}
+}
+
+// GetResponseData 获取响应数据
+func GetResponseData(w *httptest.ResponseRecorder, dest interface{}) error {
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		return err
+	}
+
+	dataJSON, err := json.Marshal(response["data"])
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(dataJSON, dest)
+}
+
+// NewTestRouter 创建测试路由
+func NewTestRouter() *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
+	return r
+}
+
+// MockJWTToken 生成模拟JWT token
+func MockJWTToken(userID uint, username string) string {
+	// 这里应该使用实际的JWT生成逻辑
+	// 为了测试，返回一个模拟token
+	return "mock-jwt-token"
+}
+
+// WithAuth 添加认证头
+func WithAuth(token string) map[string]string {
+	return map[string]string{
+		"Authorization": "Bearer " + token,
+	}
+}

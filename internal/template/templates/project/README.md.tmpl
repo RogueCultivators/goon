@@ -1,0 +1,65 @@
+# {{.ProjectName}}
+
+基于 Gin 框架的模块化 Web 项目
+
+## 快速开始
+
+### 安装依赖
+
+```bash
+go mod download
+```
+
+### 运行项目
+
+```bash
+go run main.go
+```
+
+服务器将在 http://localhost:8080 启动
+
+## 项目结构
+
+```
+.
+├── cmd/
+│   └── server/          # 服务器启动逻辑
+├── internal/
+│   ├── config/          # 配置管理
+│   ├── middleware/      # 中间件
+│   ├── router/          # 路由配置
+│   └── [module]/        # 业务模块（按模块分组）
+│       ├── handler.go   # HTTP 处理器
+│       ├── service.go   # 业务逻辑
+│       ├── model.go     # 数据模型
+│       └── repository.go # 数据访问层
+├── pkg/
+│   ├── response/        # 统一响应格式
+│   └── logger/          # 日志工具
+├── config.yaml          # 配置文件
+└── main.go             # 入口文件
+```
+
+## 添加新模块
+
+使用 goon CLI 工具快速添加新模块：
+
+```bash
+goon add user
+```
+
+这将在 internal/user/ 目录下生成完整的模块代码结构。
+
+## API 端点
+
+- GET /health - 健康检查
+- GET /api/v1/ping - 测试接口
+
+## 配置
+
+编辑 config.yaml 文件来修改配置：
+
+```yaml
+port: 8080
+log_level: info
+```

@@ -1,0 +1,53 @@
+package config
+
+import (
+	"log"
+
+	"github.com/spf13/viper"
+)
+
+type Config struct {
+	Port     int           `yaml:"port"`
+	Log      LogConfig     `yaml:"log"`
+	Database DatabaseConfig `yaml:"database"`
+}
+
+type LogConfig struct {
+	Level     string `yaml:"level"`      // debug, info, warn, error
+	Format    string `yaml:"format"`     // json, text
+	Output    string `yaml:"output"`     // console, file, both
+	FilePath  string `yaml:"file_path"`  // 日志文件路径
+	AddSource bool   `yaml:"add_source"` // 是否添加源码位置
+}
+
+type DatabaseConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	DBName   string `yaml:"dbname"`
+}
+
+func Load() *Config {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+
+	viper.SetDefault("port", 8080)
+	viper.SetDefault("log.level", "info")
+	viper.SetDefault("log.format", "json")
+	viper.SetDefault("log.output", "console")
+	viper.SetDefault("log.file_path", "logs/app.log")
+	viper.SetDefault("log.add_source", false)
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Printf("配置文件读取失败，使用默认配置: %v", err)
+	}
+
+	var cfg Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("配置解析失败: %v", err)
+	}
+
+	return &cfg
+}

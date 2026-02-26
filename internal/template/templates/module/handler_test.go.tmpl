@@ -1,0 +1,158 @@
+package {{.ModuleName}}
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+// Mock{{.CapitalizedName}}Service 是 {{.CapitalizedName}}Service 的 mock
+type Mock{{.CapitalizedName}}Service struct {
+	mock.Mock
+}
+
+func (m *Mock{{.CapitalizedName}}Service) List() ([]{{.CapitalizedName}}, error) {
+	args := m.Called()
+	return args.Get(0).([]{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Service) Get(id uint) (*{{.CapitalizedName}}, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Service) Create(req *Create{{.CapitalizedName}}Request) (*{{.CapitalizedName}}, error) {
+	args := m.Called(req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Service) Update(id uint, req *Update{{.CapitalizedName}}Request) (*{{.CapitalizedName}}, error) {
+	args := m.Called(id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*{{.CapitalizedName}}), args.Error(1)
+}
+
+func (m *Mock{{.CapitalizedName}}Service) Delete(id uint) error {
+	args := m.Called(id)
+	return args.Error(0)
+}
+
+func TestList(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(Mock{{.CapitalizedName}}Service)
+	handler := NewHandler(mockService)
+
+	expected := []{{.CapitalizedName}}{
+		{ID: 1},
+		{ID: 2},
+	}
+	mockService.On("List").Return(expected, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("GET", "/{{.ModuleName}}", nil)
+
+	handler.List(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestGet(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(Mock{{.CapitalizedName}}Service)
+	handler := NewHandler(mockService)
+
+	expected := &{{.CapitalizedName}}{ID: 1}
+	mockService.On("Get", uint(1)).Return(expected, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{"{{Key: \"id\", Value: \"1\"}}"}}
+	c.Request = httptest.NewRequest("GET", "/{{.ModuleName}}/1", nil)
+
+	handler.Get(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestCreate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(Mock{{.CapitalizedName}}Service)
+	handler := NewHandler(mockService)
+
+	req := &Create{{.CapitalizedName}}Request{}
+	expected := &{{.CapitalizedName}}{ID: 1}
+	mockService.On("Create", req).Return(expected, nil)
+
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/{{.ModuleName}}", bytes.NewBuffer(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	handler.Create(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestUpdate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(Mock{{.CapitalizedName}}Service)
+	handler := NewHandler(mockService)
+
+	req := &Update{{.CapitalizedName}}Request{}
+	expected := &{{.CapitalizedName}}{ID: 1}
+	mockService.On("Update", uint(1), req).Return(expected, nil)
+
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{"{{Key: \"id\", Value: \"1\"}}"}}
+	c.Request = httptest.NewRequest("PUT", "/{{.ModuleName}}/1", bytes.NewBuffer(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	handler.Update(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestDelete(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(Mock{{.CapitalizedName}}Service)
+	handler := NewHandler(mockService)
+
+	mockService.On("Delete", uint(1)).Return(nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{"{{Key: \"id\", Value: \"1\"}}"}}
+	c.Request = httptest.NewRequest("DELETE", "/{{.ModuleName}}/1", nil)
+
+	handler.Delete(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+}

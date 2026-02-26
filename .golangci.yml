@@ -1,0 +1,92 @@
+# golangci-lint 配置文件
+# 文档: https://golangci-lint.run/usage/configuration/
+
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - testdata
+  skip-files:
+    - ".*\\.pb\\.go$"
+
+linters:
+  enable:
+    - errcheck      # 检查未处理的错误
+    - gosimple      # 简化代码建议
+    - govet         # Go 官方 vet 工具
+    - ineffassign   # 检测无效赋值
+    - staticcheck   # 静态分析
+    - unused        # 检测未使用的代码
+    - gofmt         # 检查代码格式
+    - goimports     # 检查 import 顺序
+    - misspell      # 拼写检查
+    - revive        # 快速、可配置的 linter
+    - gosec         # 安全检查
+    - gocritic      # 代码质量检查
+    - gocyclo       # 圈复杂度检查
+    - dupl          # 重复代码检查
+    - unparam       # 未使用的函数参数
+    - unconvert     # 不必要的类型转换
+    - prealloc      # 切片预分配检查
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    check-shadowing: true
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+    disabled-checks:
+      - commentedOutCode
+
+  revive:
+    rules:
+      - name: exported
+        severity: warning
+        disabled: false
+      - name: var-naming
+        severity: warning
+        disabled: false
+      - name: package-comments
+        severity: warning
+        disabled: false
+
+  gosec:
+    excludes:
+      - G104  # 允许某些情况下不检查错误
+      - G304  # 文件路径来自变量
+
+issues:
+  exclude-rules:
+    # 排除测试文件的某些检查
+    - path: _test\.go
+      linters:
+        - errcheck
+        - dupl
+        - gosec
+
+    # 排除生成的代码
+    - path: ".*\\.pb\\.go"
+      linters:
+        - all
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

@@ -1,0 +1,68 @@
+package errors
+
+import "net/http"
+
+// 业务错误码定义
+const (
+	// 通用错误码 1000-1999
+	ErrCodeSuccess         = 0
+	ErrCodeBadRequest      = 1000
+	ErrCodeUnauthorized    = 1001
+	ErrCodeForbidden       = 1002
+	ErrCodeNotFound        = 1003
+	ErrCodeInternalError   = 1004
+	ErrCodeValidationError = 1005
+
+	// 业务错误码 2000+
+	// TODO: 添加你的业务错误码
+)
+
+// AppError 应用错误
+type AppError struct {
+	Code       int    `json:"code"`
+	Message    string `json:"message"`
+	HTTPStatus int    `json:"-"`
+}
+
+func (e *AppError) Error() string {
+	return e.Message
+}
+
+// New 创建新的应用错误
+func New(code int, message string, httpStatus int) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    message,
+		HTTPStatus: httpStatus,
+	}
+}
+
+// 预定义错误
+var (
+	ErrBadRequest      = New(ErrCodeBadRequest, "请求参数错误", http.StatusBadRequest)
+	ErrUnauthorized    = New(ErrCodeUnauthorized, "未授权", http.StatusUnauthorized)
+	ErrForbidden       = New(ErrCodeForbidden, "禁止访问", http.StatusForbidden)
+	ErrNotFound        = New(ErrCodeNotFound, "资源不存在", http.StatusNotFound)
+	ErrInternalError   = New(ErrCodeInternalError, "服务器内部错误", http.StatusInternalServerError)
+	ErrValidationError = New(ErrCodeValidationError, "数据验证失败", http.StatusBadRequest)
+)
+
+// NewBadRequest 创建请求错误
+func NewBadRequest(message string) *AppError {
+	return New(ErrCodeBadRequest, message, http.StatusBadRequest)
+}
+
+// NewUnauthorized 创建未授权错误
+func NewUnauthorized(message string) *AppError {
+	return New(ErrCodeUnauthorized, message, http.StatusUnauthorized)
+}
+
+// NewNotFound 创建未找到错误
+func NewNotFound(message string) *AppError {
+	return New(ErrCodeNotFound, message, http.StatusNotFound)
+}
+
+// NewInternalError 创建内部错误
+func NewInternalError(message string) *AppError {
+	return New(ErrCodeInternalError, message, http.StatusInternalServerError)
+}

@@ -1,0 +1,158 @@
+package email
+
+import (
+	"bytes"
+	"fmt"
+	"html/template"
+	"net/smtp"
+)
+
+var (
+	smtpHost string
+	smtpPort int
+	username string
+	password string
+	from     string
+)
+
+// Config 邮件配置
+type Config struct {
+	SMTPHost string
+	SMTPPort int
+	Username string
+	Password string
+	From     string
+}
+
+// Init 初始化邮件配置
+func Init(cfg *Config) {
+	smtpHost = cfg.SMTPHost
+	smtpPort = cfg.SMTPPort
+	username = cfg.Username
+	password = cfg.Password
+	from = cfg.From
+}
+
+// Message 邮件消息
+type Message struct {
+	To      []string
+	Subject string
+	Body    string
+	IsHTML  bool
+}
+
+// Send 发送邮件
+func Send(msg *Message) error {
+	auth := smtp.PlainAuth("", username, password, smtpHost)
+
+	var contentType string
+	if msg.IsHTML {
+		contentType = "text/html"
+	} else {
+		contentType = "text/plain"
+	}
+
+	body := fmt.Sprintf("From: %s\r\n"+
+		"To: %s\r\n"+
+		"Subject: %s\r\n"+
+		"Content-Type: %s; charset=UTF-8\r\n"+
+		"\r\n"+
+		"%s",
+		from,
+		msg.To[0],
+		msg.Subject,
+		contentType,
+		msg.Body,
+	)
+
+	addr := fmt.Sprintf("%s:%d", smtpHost, smtpPort)
+	return smtp.SendMail(addr, auth, from, msg.To, []byte(body))
+}
+
+// SendWithTemplate 使用模板发送邮件
+func SendWithTemplate(to []string, subject string, tmplStr string, data interface{}) error {
+	tmpl, err := template.New("email").Parse(tmplStr)
+	if err != nil {
+		return fmt.Errorf("解析模板失败: %w", err)
+	}
+
+	var body bytes.Buffer
+	if err := tmpl.Execute(&body, data); err != nil {
+		return fmt.Errorf("渲染模板失败: %w", err)
+	}
+
+	return Send(&Message{
+		To:      to,
+		Subject: subject,
+		Body:    body.String(),
+		IsHTML:  true,
+	})
+}
+
+// SendVerificationCode 发送验证码邮件
+func SendVerificationCode(to string, code string) error {
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>验证码</h2>
+    <p>您的验证码是：<strong style="font-size: 24px; color: #007bff;">{{"{{"}}.Code{{"}}"}}</strong></p>
+    <p>验证码有效期为 10 分钟，请尽快使用。</p>
+    <p>如果这不是您的操作，请忽略此邮件。</p>
+</body>
+</html>
+`
+
+	return SendWithTemplate([]string{to}, "验证码", tmpl, map[string]string{
+		"Code": code,
+	})
+}
+
+// SendWelcome 发送欢迎邮件
+func SendWelcome(to string, username string) error {
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>欢迎加入！</h2>
+    <p>亲爱的 {{"{{"}}.Username{{"}}"}}，</p>
+    <p>感谢您注册我们的服务！</p>
+    <p>如有任何问题，请随时联系我们。</p>
+</body>
+</html>
+`
+
+	return SendWithTemplate([]string{to}, "欢迎加入", tmpl, map[string]string{
+		"Username": username,
+	})
+}
+
+// SendPasswordReset 发送密码重置邮件
+func SendPasswordReset(to string, resetLink string) error {
+	tmpl := `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <h2>重置密码</h2>
+    <p>您请求重置密码。</p>
+    <p>请点击以下链接重置您的密码：</p>
+    <p><a href="{{"{{"}}.ResetLink{{"}}"}}" style="color: #007bff;">重置密码</a></p>
+    <p>此链接将在 1 小时后失效。</p>
+    <p>如果这不是您的操作，请忽略此邮件。</p>
+</body>
+</html>
+`
+
+	return SendWithTemplate([]string{to}, "重置密码", tmpl, map[string]string{
+		"ResetLink": resetLink,
+	})
+}

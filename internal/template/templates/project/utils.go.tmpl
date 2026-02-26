@@ -1,0 +1,212 @@
+package utils
+
+import (
+	"crypto/md5"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"math/big"
+	"strings"
+	"time"
+)
+
+// GenerateRandomString 生成指定长度的随机字符串
+func GenerateRandomString(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	result := make([]byte, length)
+	for i := range result {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		result[i] = charset[num.Int64()]
+	}
+	return string(result), nil
+}
+
+// MD5Hash 计算字符串的 MD5 哈希值
+func MD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
+}
+
+// InSlice 检查元素是否在切片中
+func InSlice[T comparable](slice []T, item T) bool {
+	for _, v := range slice {
+		if v == item {
+			return true
+		}
+	}
+	return false
+}
+
+// UniqueSlice 去除切片中的重复元素
+func UniqueSlice[T comparable](slice []T) []T {
+	seen := make(map[T]bool)
+	result := make([]T, 0)
+	for _, item := range slice {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// FormatTime 格式化时间为常用格式
+func FormatTime(t time.Time, format string) string {
+	formats := map[string]string{
+		"datetime": "2006-01-02 15:04:05",
+		"date":     "2006-01-02",
+		"time":     "15:04:05",
+		"iso8601":  "2006-01-02T15:04:05Z07:00",
+	}
+
+	if layout, ok := formats[format]; ok {
+		return t.Format(layout)
+	}
+	return t.Format(format)
+}
+
+// ParseTime 解析时间字符串
+func ParseTime(timeStr string, format string) (time.Time, error) {
+	formats := map[string]string{
+		"datetime": "2006-01-02 15:04:05",
+		"date":     "2006-01-02",
+		"time":     "15:04:05",
+		"iso8601":  "2006-01-02T15:04:05Z07:00",
+	}
+
+	if layout, ok := formats[format]; ok {
+		return time.Parse(layout, timeStr)
+	}
+	return time.Parse(format, timeStr)
+}
+
+// TruncateString 截断字符串到指定长度
+func TruncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// CamelToSnake 驼峰转蛇形
+func CamelToSnake(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteRune('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
+}
+
+// SnakeToCamel 蛇形转驼峰
+func SnakeToCamel(s string) string {
+	words := strings.Split(s, "_")
+	for i := range words {
+		if len(words[i]) > 0 {
+			words[i] = strings.ToUpper(words[i][:1]) + words[i][1:]
+		}
+	}
+	return strings.Join(words, "")
+}
+
+// Paginate 分页计算
+func Paginate(page, pageSize int) (offset, limit int) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	offset = (page - 1) * pageSize
+	limit = pageSize
+	return
+}
+
+// IfThenElse 三元运算符
+func IfThenElse[T any](condition bool, trueVal, falseVal T) T {
+	if condition {
+		return trueVal
+	}
+	return falseVal
+}
+
+// Ptr 返回值的指针
+func Ptr[T any](v T) *T {
+	return &v
+}
+
+// DefaultValue 如果值为零值则返回默认值
+func DefaultValue[T comparable](value, defaultVal T) T {
+	var zero T
+	if value == zero {
+		return defaultVal
+	}
+	return value
+}
+
+// MaskString 掩码字符串（如手机号、邮箱）
+func MaskString(s string, start, end int) string {
+	runes := []rune(s)
+	length := len(runes)
+
+	if start < 0 {
+		start = 0
+	}
+	if end > length {
+		end = length
+	}
+	if start >= end {
+		return s
+	}
+
+	for i := start; i < end; i++ {
+		runes[i] = '*'
+	}
+	return string(runes)
+}
+
+// MaskMobile 掩码手机号（保留前3后4位）
+func MaskMobile(mobile string) string {
+	if len(mobile) != 11 {
+		return mobile
+	}
+	return mobile[:3] + "****" + mobile[7:]
+}
+
+// MaskEmail 掩码邮箱
+func MaskEmail(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return email
+	}
+	username := parts[0]
+	if len(username) <= 2 {
+		return email
+	}
+	return username[:1] + "***" + username[len(username)-1:] + "@" + parts[1]
+}
+
+// RetryWithBackoff 带退避的重试
+func RetryWithBackoff(maxRetries int, initialDelay time.Duration, fn func() error) error {
+	var err error
+	delay := initialDelay
+
+	for i := 0; i < maxRetries; i++ {
+		err = fn()
+		if err == nil {
+			return nil
+		}
+
+		if i < maxRetries-1 {
+			time.Sleep(delay)
+			delay *= 2 // 指数退避
+		}
+	}
+
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, err)
+}

@@ -1,0 +1,138 @@
+package pagination
+
+import (
+	"math"
+
+	"gorm.io/gorm"
+)
+
+// Paginator 分页器
+type Paginator struct {
+	Page       int         `json:"page"`        // 当前页码
+	PageSize   int         `json:"page_size"`   // 每页数量
+	Total      int64       `json:"total"`       // 总记录数
+	TotalPages int         `json:"total_pages"` // 总页数
+	Data       interface{} `json:"data"`        // 数据
+}
+
+// Params 分页参数
+type Params struct {
+	Page     int `form:"page" json:"page"`
+	PageSize int `form:"page_size" json:"page_size"`
+}
+
+// Normalize 标准化分页参数
+func (p *Params) Normalize() {
+	if p.Page < 1 {
+		p.Page = 1
+	}
+	if p.PageSize < 1 {
+		p.PageSize = 10
+	}
+	if p.PageSize > 100 {
+		p.PageSize = 100
+	}
+}
+
+// GetOffset 获取偏移量
+func (p *Params) GetOffset() int {
+	return (p.Page - 1) * p.PageSize
+}
+
+// Paginate GORM分页查询
+func Paginate(db *gorm.DB, params *Params, dest interface{}) (*Paginator, error) {
+	params.Normalize()
+
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	offset := params.GetOffset()
+	if err := db.Offset(offset).Limit(params.PageSize).Find(dest).Error; err != nil {
+		return nil, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(params.PageSize)))
+
+	return &Paginator{
+		Page:       params.Page,
+		PageSize:   params.PageSize,
+		Total:      total,
+		TotalPages: totalPages,
+		Data:       dest,
+	}, nil
+}
+
+// PaginateSlice 对切片进行分页
+func PaginateSlice(data interface{}, params *Params) *Paginator {
+	params.Normalize()
+
+	// 使用类型断言获取切片
+	var items []interface{}
+	switch v := data.(type) {
+	case []interface{}:
+		items = v
+	default:
+		// 如果不是[]interface{}类型，返回空分页
+		return &Paginator{
+			Page:       params.Page,
+			PageSize:   params.PageSize,
+			Total:      0,
+			TotalPages: 0,
+			Data:       []interface{}{},
+		}
+	}
+
+	total := int64(len(items))
+	totalPages := int(math.Ceil(float64(total) / float64(params.PageSize)))
+
+	offset := params.GetOffset()
+	end := offset + params.PageSize
+
+	if offset > len(items) {
+		offset = len(items)
+	}
+	if end > len(items) {
+		end = len(items)
+	}
+
+	return &Paginator{
+		Page:       params.Page,
+		PageSize:   params.PageSize,
+		Total:      total,
+		TotalPages: totalPages,
+		Data:       items[offset:end],
+	}
+}
+
+// HasNext 是否有下一页
+func (p *Paginator) HasNext() bool {
+	return p.Page < p.TotalPages
+}
+
+// HasPrev 是否有上一页
+func (p *Paginator) HasPrev() bool {
+	return p.Page > 1
+}
+
+// NextPage 下一页页码
+func (p *Paginator) NextPage() int {
+	if p.HasNext() {
+		return p.Page + 1
+	}
+	return p.Page
+}
+
+// PrevPage 上一页页码
+func (p *Paginator) PrevPage() int {
+	if p.HasPrev() {
+		return p.Page - 1
+	}
+	return p.Page
+}
+
+// IsEmpty 是否为空
+func (p *Paginator) IsEmpty() bool {
+	return p.Total == 0
+}

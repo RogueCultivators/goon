@@ -1,0 +1,91 @@
+package jwt
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
+var (
+	secretKey []byte
+	issuer    string
+	expireIn  time.Duration
+)
+
+// Claims JWT 声明
+type Claims struct {
+	UserID   uint   `json:"user_id"`
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
+// Config JWT 配置
+type Config struct {
+	SecretKey string
+	Issuer    string
+	ExpireIn  time.Duration // 过期时间，如 24 * time.Hour
+}
+
+// Init 初始化 JWT 配置
+func Init(cfg *Config) {
+	secretKey = []byte(cfg.SecretKey)
+	issuer = cfg.Issuer
+	if cfg.ExpireIn > 0 {
+		expireIn = cfg.ExpireIn
+	} else {
+		expireIn = 24 * time.Hour // 默认24小时
+	}
+}
+
+// GenerateToken 生成 JWT token
+func GenerateToken(userID uint, username string) (string, error) {
+	now := time.Now()
+	claims := Claims{
+		UserID:   userID,
+		Username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expireIn)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secretKey)
+}
+
+// ParseToken 解析 JWT token
+func ParseToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return secretKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// RefreshToken 刷新 token
+func RefreshToken(tokenString string) (string, error) {
+	claims, err := ParseToken(tokenString)
+	if err != nil {
+		return "", err
+	}
+
+	// 如果 token 还有超过一半的有效期，不刷新
+	if time.Until(claims.ExpiresAt.Time) > expireIn/2 {
+		return tokenString, nil
+	}
+
+	return GenerateToken(claims.UserID, claims.Username)
+}

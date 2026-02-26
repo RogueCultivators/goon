@@ -1,0 +1,130 @@
+package middleware
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Permission 权限定义
+type Permission string
+
+const (
+	PermissionRead   Permission = "read"
+	PermissionWrite  Permission = "write"
+	PermissionDelete Permission = "delete"
+	PermissionAdmin  Permission = "admin"
+)
+
+// Role 角色定义
+type Role string
+
+const (
+	RoleGuest  Role = "guest"
+	RoleUser   Role = "user"
+	RoleMod    Role = "moderator"
+	RoleAdmin  Role = "admin"
+	RoleSuper  Role = "super_admin"
+)
+
+// RolePermissions 角色权限映射
+var RolePermissions = map[Role][]Permission{
+	RoleGuest: {PermissionRead},
+	RoleUser:  {PermissionRead, PermissionWrite},
+	RoleMod:   {PermissionRead, PermissionWrite, PermissionDelete},
+	RoleAdmin: {PermissionRead, PermissionWrite, PermissionDelete, PermissionAdmin},
+	RoleSuper: {PermissionRead, PermissionWrite, PermissionDelete, PermissionAdmin},
+}
+
+// RequirePermission 权限检查中间件
+func RequirePermission(required Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 从上下文获取用户角色（需要先经过JWT认证中间件）
+		roleValue, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "无权限访问",
+			})
+			c.Abort()
+			return
+		}
+
+		role, ok := roleValue.(Role)
+		if !ok {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "角色信息无效",
+			})
+			c.Abort()
+			return
+		}
+
+		// 检查角色是否拥有所需权限
+		if !hasPermission(role, required) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "权限不足",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RequireRole 角色检查中间件
+func RequireRole(requiredRoles ...Role) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleValue, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "无权限访问",
+			})
+			c.Abort()
+			return
+		}
+
+		role, ok := roleValue.(Role)
+		if !ok {
+			c.JSON(http.StatusForbidden, gin.H{
+				"code":    http.StatusForbidden,
+				"message": "角色信息无效",
+			})
+			c.Abort()
+			return
+		}
+
+		// 检查用户角色是否在允许的角色列表中
+		for _, required := range requiredRoles {
+			if role == required {
+				c.Next()
+				return
+			}
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{
+			"code":    http.StatusForbidden,
+			"message": "权限不足",
+		})
+		c.Abort()
+	}
+}
+
+// hasPermission 检查角色是否拥有指定权限
+func hasPermission(role Role, required Permission) bool {
+	permissions, exists := RolePermissions[role]
+	if !exists {
+		return false
+	}
+
+	for _, perm := range permissions {
+		if perm == required {
+			return true
+		}
+	}
+
+	return false
+}

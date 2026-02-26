@@ -1,0 +1,36 @@
+package {{.ModuleName}}
+
+type Repository struct {
+	// db *gorm.DB  // 如果使用 GORM
+}
+
+func NewRepository() *Repository {
+	return &Repository{}
+}
+
+func (r *Repository) FindAll() ([]*{{.CapitalizedName}}, error) {
+	// TODO: 实现数据库查询
+	// 示例返回
+	return []*{{.CapitalizedName}}{}, nil
+}
+
+func (r *Repository) FindByID(id string) (*{{.CapitalizedName}}, error) {
+	// TODO: 实现数据库查询
+	return &{{.CapitalizedName}}{}, nil
+}
+
+func (r *Repository) Create(req *CreateRequest) error {
+	// TODO: 实现数据库插入
+	// 将 CreateRequest 转换为 Model 并保存
+	return nil
+}
+
+func (r *Repository) Update(id string, req *UpdateRequest) error {
+	// TODO: 实现数据库更新
+	return nil
+}
+
+func (r *Repository) Delete(id string) error {
+	// TODO: 实现数据库删除
+	return nil
+}

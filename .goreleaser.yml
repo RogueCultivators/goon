@@ -1,0 +1,61 @@
+# GoReleaser 配置文件
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: goon
+    main: ./main.go
+    binary: goon
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X goon/cmd.Version={{.Version}}
+      - -X goon/cmd.Commit={{.Commit}}
+      - -X goon/cmd.BuildDate={{.Date}}
+
+archives:
+  - id: goon
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - CONTRIBUTING.md
+      - ARCHITECTURE.md
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+release:
+  github:
+    owner: yourusername
+    name: goon
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"

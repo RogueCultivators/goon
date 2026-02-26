@@ -1,0 +1,167 @@
+package upload
+
+import (
+	"fmt"
+	"io"
+	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Config 上传配置
+type Config struct {
+	UploadDir      string   // 上传目录
+	MaxSize        int64    // 最大文件大小（字节）
+	AllowedExts    []string // 允许的文件扩展名
+	GenerateUnique bool     // 是否生成唯一文件名
+}
+
+var config *Config
+
+// Init 初始化上传配置
+func Init(cfg *Config) error {
+	config = cfg
+
+	// 创建上传目录
+	if err := os.MkdirAll(config.UploadDir, 0755); err != nil {
+		return fmt.Errorf("创建上传目录失败: %w", err)
+	}
+
+	return nil
+}
+
+// UploadResult 上传结果
+type UploadResult struct {
+	FileName     string `json:"file_name"`
+	OriginalName string `json:"original_name"`
+	Size         int64  `json:"size"`
+	Path         string `json:"path"`
+	URL          string `json:"url"`
+}
+
+// SaveFile 保存上传的文件
+func SaveFile(file *multipart.FileHeader) (*UploadResult, error) {
+	if config == nil {
+		return nil, fmt.Errorf("上传配置未初始化")
+	}
+
+	// 检查文件大小
+	if config.MaxSize > 0 && file.Size > config.MaxSize {
+		return nil, fmt.Errorf("文件大小超过限制: %d bytes", config.MaxSize)
+	}
+
+	// 检查文件扩展名
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if len(config.AllowedExts) > 0 && !isAllowedExt(ext) {
+		return nil, fmt.Errorf("不支持的文件类型: %s", ext)
+	}
+
+	// 生成文件名
+	var fileName string
+	if config.GenerateUnique {
+		fileName = generateUniqueFileName(file.Filename)
+	} else {
+		fileName = file.Filename
+	}
+
+	// 构建完整路径
+	fullPath := filepath.Join(config.UploadDir, fileName)
+
+	// 打开上传的文件
+	src, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("打开上传文件失败: %w", err)
+	}
+	defer src.Close()
+
+	// 创建目标文件
+	dst, err := os.Create(fullPath)
+	if err != nil {
+		return nil, fmt.Errorf("创建目标文件失败: %w", err)
+	}
+	defer dst.Close()
+
+	// 复制文件内容
+	if _, err := io.Copy(dst, src); err != nil {
+		return nil, fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	return &UploadResult{
+		FileName:     fileName,
+		OriginalName: file.Filename,
+		Size:         file.Size,
+		Path:         fullPath,
+		URL:          "/uploads/" + fileName,
+	}, nil
+}
+
+// SaveFiles 批量保存文件
+func SaveFiles(files []*multipart.FileHeader) ([]*UploadResult, error) {
+	results := make([]*UploadResult, 0, len(files))
+
+	for _, file := range files {
+		result, err := SaveFile(file)
+		if err != nil {
+			return results, err
+		}
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// DeleteFile 删除文件
+func DeleteFile(fileName string) error {
+	if config == nil {
+		return fmt.Errorf("上传配置未初始化")
+	}
+
+	fullPath := filepath.Join(config.UploadDir, fileName)
+	return os.Remove(fullPath)
+}
+
+// isAllowedExt 检查文件扩展名是否允许
+func isAllowedExt(ext string) bool {
+	for _, allowed := range config.AllowedExts {
+		if strings.ToLower(allowed) == ext {
+			return true
+		}
+	}
+	return false
+}
+
+// generateUniqueFileName 生成唯一文件名
+func generateUniqueFileName(originalName string) string {
+	ext := filepath.Ext(originalName)
+	timestamp := time.Now().Format("20060102150405")
+	uniqueID := uuid.New().String()[:8]
+	return fmt.Sprintf("%s_%s%s", timestamp, uniqueID, ext)
+}
+
+// GetFileInfo 获取文件信息
+func GetFileInfo(fileName string) (os.FileInfo, error) {
+	if config == nil {
+		return nil, fmt.Errorf("上传配置未初始化")
+	}
+
+	fullPath := filepath.Join(config.UploadDir, fileName)
+	return os.Stat(fullPath)
+}
+
+// ValidateImage 验证图片文件
+func ValidateImage(file *multipart.FileHeader) error {
+	allowedExts := []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+
+	for _, allowed := range allowedExts {
+		if ext == allowed {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("不支持的图片格式: %s", ext)
+}

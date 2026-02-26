@@ -1,0 +1,88 @@
+package database
+
+import (
+	"fmt"
+	"time"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
+
+var DB *gorm.DB
+
+// Config 数据库配置
+type Config struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	Charset  string
+	MaxIdle  int
+	MaxOpen  int
+	LogLevel logger.LogLevel
+}
+
+// Init 初始化数据库连接
+func Init(cfg *Config) error {
+	if cfg.Charset == "" {
+		cfg.Charset = "utf8mb4"
+	}
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
+		cfg.User,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.DBName,
+		cfg.Charset,
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(cfg.LogLevel),
+	})
+	if err != nil {
+		return fmt.Errorf("连接数据库失败: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("获取数据库实例失败: %w", err)
+	}
+
+	// 设置连接池
+	if cfg.MaxIdle > 0 {
+		sqlDB.SetMaxIdleConns(cfg.MaxIdle)
+	} else {
+		sqlDB.SetMaxIdleConns(10)
+	}
+
+	if cfg.MaxOpen > 0 {
+		sqlDB.SetMaxOpenConns(cfg.MaxOpen)
+	} else {
+		sqlDB.SetMaxOpenConns(100)
+	}
+
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	DB = db
+	return nil
+}
+
+// Close 关闭数据库连接
+func Close() error {
+	if DB != nil {
+		sqlDB, err := DB.DB()
+		if err != nil {
+			return err
+		}
+		return sqlDB.Close()
+	}
+	return nil
+}
+
+// GetDB 获取数据库实例
+func GetDB() *gorm.DB {
+	return DB
+}

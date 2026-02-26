@@ -1,0 +1,35 @@
+package {{.ModuleName}}
+
+// CreateRequest 创建{{.ModuleName}}请求
+type CreateRequest struct {
+	// TODO: 添加你的字段
+	// Name string `json:"name" binding:"required" example:"示例名称"`
+}
+
+// UpdateRequest 更新{{.ModuleName}}请求
+type UpdateRequest struct {
+	// TODO: 添加你的字段
+	// Name string `json:"name" binding:"required" example:"示例名称"`
+}
+
+// ListRequest 列表查询请求
+type ListRequest struct {
+	Page     int    `form:"page" binding:"omitempty,min=1" example:"1"`
+	PageSize int    `form:"page_size" binding:"omitempty,min=1,max=100" example:"10"`
+	Keyword  string `form:"keyword" example:"搜索关键词"`
+}
+
+// Response {{.ModuleName}}响应
+type Response struct {
+	ID        uint   `json:"id" example:"1"`
+	CreatedAt string `json:"created_at" example:"2024-01-01T00:00:00Z"`
+	UpdatedAt string `json:"updated_at" example:"2024-01-01T00:00:00Z"`
+	// TODO: 添加你的字段
+	// Name string `json:"name" example:"示例名称"`
+}
+
+// ListResponse 列表响应
+type ListResponse struct {
+	Total int64       `json:"total" example:"100"`
+	Items []*Response `json:"items"`
+}

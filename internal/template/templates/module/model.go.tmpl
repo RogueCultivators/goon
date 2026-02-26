@@ -1,0 +1,16 @@
+package {{.ModuleName}}
+
+import "time"
+
+type {{.CapitalizedName}} struct {
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// TODO: 添加你的字段
+	// Name string `json:"name" gorm:"type:varchar(100);not null"`
+}
+
+func (m *{{.CapitalizedName}}) TableName() string {
+	return "{{.ModuleName}}s"
+}

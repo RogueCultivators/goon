@@ -1,0 +1,64 @@
+package {{.ModuleName}}
+
+import "fmt"
+
+type Service struct {
+	repo *Repository
+}
+
+func NewService(repo *Repository) *Service {
+	return &Service{
+		repo: repo,
+	}
+}
+
+func (s *Service) List(req *ListRequest) (*ListResponse, error) {
+	// TODO: 实现分页和搜索逻辑
+	items, err := s.repo.FindAll()
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为响应格式
+	responses := make([]*Response, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, &Response{
+			ID:        item.ID,
+			CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt: item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+
+	return &ListResponse{
+		Total: int64(len(responses)),
+		Items: responses,
+	}, nil
+}
+
+func (s *Service) GetByID(id string) (*Response, error) {
+	item, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("未找到记录")
+	}
+
+	return &Response{
+		ID:        item.ID,
+		CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}, nil
+}
+
+func (s *Service) Create(req *CreateRequest) error {
+	// TODO: 添加业务验证逻辑
+	// TODO: 将 CreateRequest 转换为 Model
+	return s.repo.Create(req)
+}
+
+func (s *Service) Update(id string, req *UpdateRequest) error {
+	// TODO: 添加业务验证逻辑
+	return s.repo.Update(id, req)
+}
+
+func (s *Service) Delete(id string) error {
+	return s.repo.Delete(id)
+}

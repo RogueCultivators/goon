@@ -1,0 +1,12 @@
+package main
+
+import (
+	"log"
+	"{{.ModuleName}}/cmd/server"
+)
+
+func main() {
+	if err := server.Run(); err != nil {
+		log.Fatal(err)
+	}
+}

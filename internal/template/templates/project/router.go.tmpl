@@ -1,0 +1,83 @@
+package router
+
+import (
+	"net/http"
+
+	"{{.ModuleName}}/internal/middleware"
+	"{{.ModuleName}}/pkg/response"
+
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+)
+
+// @title {{.ProjectName}} API
+// @version 1.0
+// @description 基于 Gin 框架的 RESTful API
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+
+func Setup() *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(middleware.RequestID())
+	r.Use(middleware.CORS())
+	r.Use(middleware.Logger())
+
+	// Swagger 文档
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// 健康检查
+	r.GET("/health", healthCheck)
+
+	// API 路由组
+	api := r.Group("/api/v1")
+	{
+		api.GET("/ping", ping)
+
+		// 模块路由注册
+		// 在这里调用各个模块的 RegisterRoutes 函数
+		// 示例:
+		// user.RegisterRoutes(api)
+		// product.RegisterRoutes(api)
+	}
+
+	r.NoRoute(func(c *gin.Context) {
+		response.Error(c, http.StatusNotFound, "路由不存在")
+	})
+
+	return r
+}
+
+// healthCheck godoc
+// @Summary 健康检查
+// @Description 检查服务是否正常运行
+// @Tags system
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=map[string]string}
+// @Router /health [get]
+func healthCheck(c *gin.Context) {
+	response.Success(c, gin.H{"status": "ok"})
+}
+
+// ping godoc
+// @Summary Ping 测试
+// @Description 测试 API 是否可访问
+// @Tags system
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=map[string]string}
+// @Router /api/v1/ping [get]
+func ping(c *gin.Context) {
+	response.Success(c, gin.H{"message": "pong"})
+}

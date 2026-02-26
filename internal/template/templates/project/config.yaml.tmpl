@@ -1,0 +1,15 @@
+port: 8080
+
+log:
+  level: info          # debug, info, warn, error
+  format: json         # json, text
+  output: console      # console, file, both
+  file_path: logs/app.log
+  add_source: false
+
+database:
+  host: localhost
+  port: 3306
+  user: root
+  password: ""
+  dbname: myapp

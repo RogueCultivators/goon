@@ -1,0 +1,89 @@
+package middleware
+
+import (
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+// RateLimiter 限流器
+type RateLimiter struct {
+	requests map[string]*clientInfo
+	mu       sync.RWMutex
+	rate     int           // 每个时间窗口允许的请求数
+	window   time.Duration // 时间窗口
+}
+
+type clientInfo struct {
+	count      int
+	resetTime  time.Time
+}
+
+// NewRateLimiter 创建限流器
+func NewRateLimiter(rate int, window time.Duration) *RateLimiter {
+	rl := &RateLimiter{
+		requests: make(map[string]*clientInfo),
+		rate:     rate,
+		window:   window,
+	}
+
+	// 定期清理过期数据
+	go rl.cleanup()
+
+	return rl
+}
+
+// RateLimit 限流中间件
+func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		clientIP := c.ClientIP()
+
+		rl.mu.Lock()
+		defer rl.mu.Unlock()
+
+		now := time.Now()
+		client, exists := rl.requests[clientIP]
+
+		if !exists || now.After(client.resetTime) {
+			// 新客户端或时间窗口已过期
+			rl.requests[clientIP] = &clientInfo{
+				count:     1,
+				resetTime: now.Add(rl.window),
+			}
+			c.Next()
+			return
+		}
+
+		if client.count >= rl.rate {
+			// 超过限流
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"code":    http.StatusTooManyRequests,
+				"message": "请求过于频繁，请稍后再试",
+			})
+			c.Abort()
+			return
+		}
+
+		client.count++
+		c.Next()
+	}
+}
+
+// cleanup 定期清理过期数据
+func (rl *RateLimiter) cleanup() {
+	ticker := time.NewTicker(rl.window)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		rl.mu.Lock()
+		now := time.Now()
+		for ip, client := range rl.requests {
+			if now.After(client.resetTime) {
+				delete(rl.requests, ip)
+			}
+		}
+		rl.mu.Unlock()
+	}
+}

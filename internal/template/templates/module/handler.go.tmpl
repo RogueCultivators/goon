@@ -1,0 +1,139 @@
+package {{.ModuleName}}
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+	"{{.ProjectModule}}/pkg/response"
+)
+
+type Handler struct {
+	service *Service
+}
+
+func NewHandler(service *Service) *Handler {
+	return &Handler{
+		service: service,
+	}
+}
+
+// List godoc
+// @Summary 获取{{.ModuleName}}列表
+// @Description 获取{{.ModuleName}}列表，支持分页和关键词搜索
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(10)
+// @Param keyword query string false "搜索关键词"
+// @Success 200 {object} response.Response{data=ListResponse}
+// @Failure 500 {object} response.Response
+// @Router /api/v1/{{.ModuleName}} [get]
+func (h *Handler) List(c *gin.Context) {
+	var req ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.service.List(&req)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(c, result)
+}
+
+// Get godoc
+// @Summary 获取单个{{.ModuleName}}
+// @Description 根据ID获取{{.ModuleName}}详情
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{.ModuleName}} ID"
+// @Success 200 {object} response.Response{data=Response}
+// @Failure 404 {object} response.Response
+// @Router /api/v1/{{.ModuleName}}/{id} [get]
+func (h *Handler) Get(c *gin.Context) {
+	id := c.Param("id")
+	item, err := h.service.GetByID(id)
+	if err != nil {
+		response.Error(c, http.StatusNotFound, err.Error())
+		return
+	}
+	response.Success(c, item)
+}
+
+// Create godoc
+// @Summary 创建{{.ModuleName}}
+// @Description 创建新的{{.ModuleName}}
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param request body CreateRequest true "创建请求"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/{{.ModuleName}} [post]
+func (h *Handler) Create(c *gin.Context) {
+	var req CreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.Create(&req); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "创建成功", nil)
+}
+
+// Update godoc
+// @Summary 更新{{.ModuleName}}
+// @Description 根据ID更新{{.ModuleName}}
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{.ModuleName}} ID"
+// @Param request body UpdateRequest true "更新请求"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/{{.ModuleName}}/{id} [put]
+func (h *Handler) Update(c *gin.Context) {
+	id := c.Param("id")
+	var req UpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.service.Update(id, &req); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "更新成功", nil)
+}
+
+// Delete godoc
+// @Summary 删除{{.ModuleName}}
+// @Description 根据ID删除{{.ModuleName}}
+// @Tags {{.ModuleName}}
+// @Accept json
+// @Produce json
+// @Param id path string true "{{.ModuleName}} ID"
+// @Success 200 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /api/v1/{{.ModuleName}}/{id} [delete]
+func (h *Handler) Delete(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.Delete(id); err != nil {
+		response.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "删除成功", nil)
+}
