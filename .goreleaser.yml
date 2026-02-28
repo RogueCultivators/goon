@@ -54,7 +54,7 @@ changelog:
 
 release:
   github:
-    owner: yourusername
+    owner: RogueCultivators
     name: goon
   draft: false
   prerelease: auto
