@@ -28,7 +28,8 @@ var initCmd = &cobra.Command{
 		if interactiveMode {
 			fmt.Println("🎯 交互式项目初始化向导")
 
-			config, err := interactive.RunInitWizard()
+			var config *interactive.ProjectConfig
+			config, err = interactive.RunInitWizard()
 			if err != nil {
 				fmt.Printf("向导执行失败: %v\n", err)
 				return

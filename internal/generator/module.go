@@ -24,13 +24,10 @@ func AddModule(moduleName string, layers []string, example bool, dryRun bool) er
 		return fmt.Errorf("初始化模板渲染器失败: %w", err)
 	}
 
-	// 标准化模块名称
 	moduleName = utils.ToSnakeCase(moduleName)
 	capitalizedName := utils.ToPascalCase(moduleName)
-
 	moduleDir := filepath.Join("internal", moduleName)
 
-	// 创建模块目录（如果不存在）
 	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		return err
 	}
@@ -41,36 +38,35 @@ func AddModule(moduleName string, layers []string, example bool, dryRun bool) er
 		ProjectModule:   projectModule,
 	}
 
-	// 所有可用的层
-	var allFiles map[string]string
-	if example {
-		// 使用示例模板（包含完整实现）
-		allFiles = map[string]string{
-			"handler":    "handler_example.go.tmpl",
-			"service":    "service_example.go.tmpl",
-			"model":      "model_example.go.tmpl",
-			"repository": "repository_example.go.tmpl",
-			"schema":     "schema_example.go.tmpl",
-			"routes":     "routes.go.tmpl",
-		}
-	} else {
-		// 使用基础模板（骨架代码）
-		allFiles = map[string]string{
-			"handler":    "handler.go.tmpl",
-			"service":    "service.go.tmpl",
-			"model":      "model.go.tmpl",
-			"repository": "repository.go.tmpl",
-			"schema":     "schema.go.tmpl",
-			"routes":     "routes.go.tmpl",
-		}
-	}
-
-	// 如果没有指定 layers，生成所有文件
+	allFiles := getModuleTemplates(example)
 	if len(layers) == 0 {
 		layers = []string{"handler", "service", "model", "repository", "schema", "routes"}
 	}
 
-	// 验证 layers 是否有效
+	if err := validateLayers(layers, allFiles); err != nil {
+		return err
+	}
+
+	files := buildFileList(moduleDir, layers, allFiles)
+	return renderModuleFiles(files, renderer, data, dryRun)
+}
+
+func getModuleTemplates(example bool) map[string]string {
+	if example {
+		return map[string]string{
+			"handler": "handler_example.go.tmpl", "service": "service_example.go.tmpl",
+			"model": "model_example.go.tmpl", "repository": "repository_example.go.tmpl",
+			"schema": "schema_example.go.tmpl", "routes": "routes.go.tmpl",
+		}
+	}
+	return map[string]string{
+		"handler": "handler.go.tmpl", "service": "service.go.tmpl",
+		"model": "model.go.tmpl", "repository": "repository.go.tmpl",
+		"schema": "schema.go.tmpl", "routes": "routes.go.tmpl",
+	}
+}
+
+func validateLayers(layers []string, allFiles map[string]string) error {
 	validLayers := make(map[string]bool)
 	for layer := range allFiles {
 		validLayers[layer] = true
@@ -81,17 +77,21 @@ func AddModule(moduleName string, layers []string, example bool, dryRun bool) er
 			return fmt.Errorf("无效的层: %s，可用的层: handler, service, model, repository, schema", layer)
 		}
 	}
+	return nil
+}
 
-	// 根据指定的 layers 构建文件列表
+func buildFileList(moduleDir string, layers []string, allFiles map[string]string) map[string]string {
 	files := make(map[string]string)
 	for _, layer := range layers {
 		if tmpl, ok := allFiles[layer]; ok {
 			files[filepath.Join(moduleDir, layer+".go")] = tmpl
 		}
 	}
+	return files
+}
 
+func renderModuleFiles(files map[string]string, renderer *template.Renderer, data template.ModuleData, dryRun bool) error {
 	for path, tmplName := range files {
-		// 跳过已存在的文件（幂等性）
 		if _, err := os.Stat(path); err == nil {
 			if dryRun {
 				fmt.Printf("  ⏭  %s (已存在，将跳过)\n", path)
@@ -100,7 +100,6 @@ func AddModule(moduleName string, layers []string, example bool, dryRun bool) er
 		}
 
 		if dryRun {
-			// 预览模式：只显示将要生成的文件
 			fmt.Printf("  ✓ %s\n", path)
 			fmt.Printf("     模板: %s\n", tmplName)
 			continue
@@ -115,7 +114,6 @@ func AddModule(moduleName string, layers []string, example bool, dryRun bool) er
 			return err
 		}
 	}
-
 	return nil
 }
 

@@ -12,135 +12,161 @@ import (
 
 // RenameModule 重命名模块
 func RenameModule(oldName, newName string, dryRun bool) error {
-	// 标准化模块名称
 	oldName = utils.ToSnakeCase(oldName)
 	newName = utils.ToSnakeCase(newName)
 
 	oldDir := filepath.Join("internal", oldName)
 	newDir := filepath.Join("internal", newName)
 
-	// 检查旧模块是否存在
-	if _, err := os.Stat(oldDir); os.IsNotExist(err) {
-		return fmt.Errorf("模块 %s 不存在", oldName)
+	if err := validateRenameOperation(oldDir, newDir, oldName, newName); err != nil {
+		return err
 	}
 
-	// 检查新模块名是否已存在
-	if _, err := os.Stat(newDir); err == nil {
-		return fmt.Errorf("模块 %s 已存在", newName)
-	}
-
-	// 获取项目模块名
 	projectModule, err := getModuleNameFromGoMod()
 	if err != nil {
 		return err
 	}
 
-	oldCapitalized := utils.ToPascalCase(oldName)
-	newCapitalized := utils.ToPascalCase(newName)
-
 	if dryRun {
-		ui.Step("将要执行的操作:")
-		ui.Info(fmt.Sprintf("1. 重命名目录: %s → %s", oldDir, newDir))
-		ui.Info("2. 更新模块内所有文件的包名")
-		ui.Info("3. 更新 router.go 中的导入和路由注册")
-		ui.Info("4. 更新所有引用此模块的文件")
-		return nil
+		return showRenameDryRun(oldDir, newDir)
 	}
 
-	// 创建备份管理器
+	return executeRename(oldDir, newDir, oldName, newName, projectModule)
+}
+
+func validateRenameOperation(oldDir, newDir, oldName, newName string) error {
+	if _, err := os.Stat(oldDir); os.IsNotExist(err) {
+		return fmt.Errorf("模块 %s 不存在", oldName)
+	}
+
+	if _, err := os.Stat(newDir); err == nil {
+		return fmt.Errorf("模块 %s 已存在", newName)
+	}
+
+	return nil
+}
+
+func showRenameDryRun(oldDir, newDir string) error {
+	ui.Step("将要执行的操作:")
+	ui.Info(fmt.Sprintf("1. 重命名目录: %s → %s", oldDir, newDir))
+	ui.Info("2. 更新模块内所有文件的包名")
+	ui.Info("3. 更新 router.go 中的导入和路由注册")
+	ui.Info("4. 更新所有引用此模块的文件")
+	return nil
+}
+
+func executeRename(oldDir, newDir, oldName, newName, projectModule string) error {
 	bm := utils.NewBackupManager()
 
-	// 1. 重命名目录
 	ui.Step(fmt.Sprintf("重命名目录: %s → %s", oldDir, newDir))
-	if err := os.Rename(oldDir, newDir); err != nil {
-		return fmt.Errorf("重命名目录失败: %w", err)
+	if renameErr := os.Rename(oldDir, newDir); renameErr != nil {
+		return fmt.Errorf("重命名目录失败: %w", renameErr)
 	}
 
-	// 2. 更新模块内所有文件
+	if err := updateModuleFiles(newDir, oldName, newName, bm); err != nil {
+		return err
+	}
+
+	if err := updateRouterFile(oldName, newName, projectModule, bm); err != nil {
+		return err
+	}
+
+	if err := updateReferences(projectModule, oldName, newName, bm); err != nil {
+		return err
+	}
+
+	ui.Success("所有文件已更新")
+	return nil
+}
+
+func updateModuleFiles(newDir, oldName, newName string, bm *utils.BackupManager) error {
 	ui.Step("更新模块内文件...")
 	files, err := filepath.Glob(filepath.Join(newDir, "*.go"))
 	if err != nil {
 		return fmt.Errorf("查找文件失败: %w", err)
 	}
 
+	oldCapitalized := utils.ToPascalCase(oldName)
+	newCapitalized := utils.ToPascalCase(newName)
+
 	for _, file := range files {
-		if err := bm.BackupFile(file); err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("备份失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
-			}
+		if err := processModuleFile(file, oldName, newName, oldCapitalized, newCapitalized, bm); err != nil {
 			return err
 		}
-
-		content, err := os.ReadFile(file)
-		if err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("读取文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
-			}
-			return fmt.Errorf("读取文件失败 %s: %w", file, err)
-		}
-
-		newContent := string(content)
-		// 更新包名
-		newContent = strings.ReplaceAll(newContent, fmt.Sprintf("package %s", oldName), fmt.Sprintf("package %s", newName))
-		// 更新类型名称
-		newContent = strings.ReplaceAll(newContent, oldCapitalized, newCapitalized)
-		// 更新变量名
-		newContent = strings.ReplaceAll(newContent, oldName, newName)
-
-		if err := os.WriteFile(file, []byte(newContent), 0o600); err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("写入文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
-			}
-			return fmt.Errorf("写入文件失败 %s: %w", file, err)
-		}
 	}
+	return nil
+}
 
-	// 3. 更新 router.go
-	ui.Step("更新 router.go...")
-	routerPath := filepath.Join("internal", "router", "router.go")
-	if _, err := os.Stat(routerPath); err == nil {
-		if err := bm.BackupFile(routerPath); err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("备份 router.go 失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
-			}
-			return err
-		}
-
-		content, err := os.ReadFile(routerPath)
-		if err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("读取 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
-			}
-			return fmt.Errorf("读取 router.go 失败: %w", err)
-		}
-
-		newContent := string(content)
-		// 更新导入
-		oldImport := fmt.Sprintf("\"%s/internal/%s\"", projectModule, oldName)
-		newImport := fmt.Sprintf("\"%s/internal/%s\"", projectModule, newName)
-		newContent = strings.ReplaceAll(newContent, oldImport, newImport)
-		// 更新路由注册
-		newContent = strings.ReplaceAll(newContent, fmt.Sprintf("%s.RegisterRoutes", oldName), fmt.Sprintf("%s.RegisterRoutes", newName))
-
-		if err := os.WriteFile(routerPath, []byte(newContent), 0o600); err != nil {
-			if rollbackErr := bm.Rollback(); rollbackErr != nil {
-				return fmt.Errorf("写入 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
-			}
-			return fmt.Errorf("写入 router.go 失败: %w", err)
-		}
-	}
-
-	// 4. 查找并更新所有引用此模块的文件
-	ui.Step("搜索并更新其他引用...")
-	if err := updateReferences(projectModule, oldName, newName, bm); err != nil {
+func processModuleFile(file, oldName, newName, oldCapitalized, newCapitalized string, bm *utils.BackupManager) error {
+	if err := bm.BackupFile(file); err != nil {
 		if rollbackErr := bm.Rollback(); rollbackErr != nil {
-			return fmt.Errorf("更新引用失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
+			return fmt.Errorf("备份失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
 		}
 		return err
 	}
 
-	ui.Success("所有文件已更新")
+	content, err := os.ReadFile(file)
+	if err != nil {
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("读取文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
+		}
+		return fmt.Errorf("读取文件失败 %s: %w", file, err)
+	}
+
+	newContent := string(content)
+	newContent = strings.ReplaceAll(newContent, fmt.Sprintf("package %s", oldName), fmt.Sprintf("package %s", newName))
+	newContent = strings.ReplaceAll(newContent, oldCapitalized, newCapitalized)
+	newContent = strings.ReplaceAll(newContent, oldName, newName)
+
+	if err := os.WriteFile(file, []byte(newContent), 0o600); err != nil {
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("写入文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
+		}
+		return fmt.Errorf("写入文件失败 %s: %w", file, err)
+	}
 	return nil
+}
+
+func updateRouterFile(oldName, newName, projectModule string, bm *utils.BackupManager) error {
+	ui.Step("更新 router.go...")
+	routerPath := filepath.Join("internal", "router", "router.go")
+
+	if _, err := os.Stat(routerPath); os.IsNotExist(err) {
+		return nil
+	}
+
+	if err := bm.BackupFile(routerPath); err != nil {
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("备份 router.go 失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
+		}
+		return err
+	}
+
+	content, err := os.ReadFile(routerPath)
+	if err != nil {
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("读取 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
+		}
+		return fmt.Errorf("读取 router.go 失败: %w", err)
+	}
+
+	newContent := updateRouterContent(string(content), oldName, newName, projectModule)
+
+	if err := os.WriteFile(routerPath, []byte(newContent), 0o600); err != nil {
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("写入 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
+		}
+		return fmt.Errorf("写入 router.go 失败: %w", err)
+	}
+	return nil
+}
+
+func updateRouterContent(content, oldName, newName, projectModule string) string {
+	oldImport := fmt.Sprintf("\"%s/internal/%s\"", projectModule, oldName)
+	newImport := fmt.Sprintf("\"%s/internal/%s\"", projectModule, newName)
+	content = strings.ReplaceAll(content, oldImport, newImport)
+	content = strings.ReplaceAll(content, fmt.Sprintf("%s.RegisterRoutes", oldName), fmt.Sprintf("%s.RegisterRoutes", newName))
+	return content
 }
 
 func updateReferences(projectModule, oldName, newName string, bm *utils.BackupManager) error {

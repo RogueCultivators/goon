@@ -59,7 +59,7 @@ func TestInitProject(t *testing.T) {
 			}
 
 			// Verify project directory was created
-			if _, err := os.Stat(tt.projectName); os.IsNotExist(err) {
+			if _, statErr := os.Stat(tt.projectName); os.IsNotExist(statErr) {
 				t.Errorf("Project directory %s was not created", tt.projectName)
 			}
 
@@ -76,7 +76,7 @@ func TestInitProject(t *testing.T) {
 
 			for _, dir := range coreDirs {
 				dirPath := filepath.Join(tt.projectName, dir)
-				if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+				if _, statErr := os.Stat(dirPath); os.IsNotExist(statErr) {
 					t.Errorf("Core directory %s was not created", dirPath)
 				}
 			}
@@ -92,7 +92,7 @@ func TestInitProject(t *testing.T) {
 
 			for _, file := range coreFiles {
 				filePath := filepath.Join(tt.projectName, file)
-				if _, err := os.Stat(filePath); os.IsNotExist(err) {
+				if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
 					t.Errorf("Core file %s was not created", filePath)
 				}
 			}
