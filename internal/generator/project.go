@@ -8,7 +8,7 @@ import (
 	"github.com/RogueCultivators/goon/internal/template"
 )
 
-func InitProject(projectName, moduleName string, minimal bool, example bool) error {
+func InitProject(projectName, moduleName string, minimal, example bool) error {
 	if err := os.MkdirAll(projectName, 0o755); err != nil {
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/RogueCultivators/goon/internal/utils"
 )
 
-func AddModule(moduleName string, layers []string, example bool, dryRun bool) error {
+func AddModule(moduleName string, layers []string, example, dryRun bool) error {
 	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		return fmt.Errorf("当前目录不是一个 Go 项目，请先运行 'goon init' 初始化项目")
 	}
