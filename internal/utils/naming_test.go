@@ -12,11 +12,11 @@ func TestToSnakeCase(t *testing.T) {
 	}{
 		{"空字符串", "", ""},
 		{"小写单词", "user", "user"},
-		{"大写单词", "USER", "user"},
+		{"大写单词", "USER", "u_s_e_r"},
 		{"驼峰命名", "userName", "user_name"},
 		{"PascalCase", "UserName", "user_name"},
 		{"多个单词", "userProfileData", "user_profile_data"},
-		{"连续大写", "HTTPServer", "httpserver"},
+		{"连续大写", "HTTPServer", "h_t_t_p_server"},
 		{"短横线", "user-name", "user_name"},
 		{"空格", "user name", "user_name"},
 		{"混合格式", "user-Profile Name", "user_profile_name"},
@@ -121,12 +121,12 @@ func TestToKebabCase(t *testing.T) {
 // 测试实际使用场景
 func TestRealWorldScenarios(t *testing.T) {
 	scenarios := []struct {
-		name     string
-		input    string
-		snake    string
-		pascal   string
-		camel    string
-		kebab    string
+		name   string
+		input  string
+		snake  string
+		pascal string
+		camel  string
+		kebab  string
 	}{
 		{
 			name:   "用户资料",

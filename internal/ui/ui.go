@@ -237,7 +237,9 @@ func (t *Table) Render() {
 func Prompt(message string) string {
 	fmt.Fprintf(Output, "%s ", Colorize(Cyan, message+":"))
 	var input string
-	fmt.Scanln(&input)
+	if _, err := fmt.Scanln(&input); err != nil {
+		return ""
+	}
 	return input
 }
 
@@ -246,6 +248,8 @@ func Confirm(message string) bool {
 	fmt.Fprintf(Output, "%s %s ", Colorize(Yellow, "?"), message)
 	fmt.Fprint(Output, Colorize(Bold, "(y/N):"))
 	var input string
-	fmt.Scanln(&input)
-	return strings.ToLower(input) == "y" || strings.ToLower(input) == "yes"
+	if _, err := fmt.Scanln(&input); err != nil {
+		return false
+	}
+	return strings.EqualFold(input, "y") || strings.EqualFold(input, "yes")
 }

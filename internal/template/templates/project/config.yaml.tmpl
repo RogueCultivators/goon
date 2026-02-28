@@ -9,7 +9,10 @@ log:
 
 database:
   host: localhost
-  port: 3306
-  user: root
-  password: ""
-  dbname: myapp
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: {{.ProjectName}}
+  sslmode: disable
+  max_idle: 10
+  max_open: 100

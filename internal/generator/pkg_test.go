@@ -62,7 +62,7 @@ func TestAddPackage(t *testing.T) {
 			name:        "invalid package",
 			pkgName:     "nonexistent",
 			wantErr:     true,
-			errContains: "不可用",
+			errContains: "未知的功能包",
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestAddPackage(t *testing.T) {
 
 			// Create a minimal go.mod file
 			goModContent := "module testproject\n\ngo 1.24\n"
-			if err := os.WriteFile("go.mod", []byte(goModContent), 0644); err != nil {
+			if err := os.WriteFile("go.mod", []byte(goModContent), 0o644); err != nil {
 				t.Fatalf("Failed to create go.mod: %v", err)
 			}
 
@@ -123,7 +123,7 @@ func TestAddPackageIdempotency(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	goModContent := "module testproject\n\ngo 1.24\n"
-	if err := os.WriteFile("go.mod", []byte(goModContent), 0644); err != nil {
+	if err := os.WriteFile("go.mod", []byte(goModContent), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 

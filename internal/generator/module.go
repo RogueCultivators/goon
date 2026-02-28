@@ -9,7 +9,7 @@ import (
 	"github.com/RogueCultivators/goon/internal/utils"
 )
 
-func AddModule(moduleName string, layers []string) error {
+func AddModule(moduleName string, layers []string, example bool, dryRun bool) error {
 	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		return fmt.Errorf("当前目录不是一个 Go 项目，请先运行 'goon init' 初始化项目")
 	}
@@ -31,7 +31,7 @@ func AddModule(moduleName string, layers []string) error {
 	moduleDir := filepath.Join("internal", moduleName)
 
 	// 创建模块目录（如果不存在）
-	if err := os.MkdirAll(moduleDir, 0755); err != nil {
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		return err
 	}
 
@@ -42,13 +42,27 @@ func AddModule(moduleName string, layers []string) error {
 	}
 
 	// 所有可用的层
-	allFiles := map[string]string{
-		"handler":    "handler.go.tmpl",
-		"service":    "service.go.tmpl",
-		"model":      "model.go.tmpl",
-		"repository": "repository.go.tmpl",
-		"schema":     "schema.go.tmpl",
-		"routes":     "routes.go.tmpl",
+	var allFiles map[string]string
+	if example {
+		// 使用示例模板（包含完整实现）
+		allFiles = map[string]string{
+			"handler":    "handler_example.go.tmpl",
+			"service":    "service_example.go.tmpl",
+			"model":      "model_example.go.tmpl",
+			"repository": "repository_example.go.tmpl",
+			"schema":     "schema_example.go.tmpl",
+			"routes":     "routes.go.tmpl",
+		}
+	} else {
+		// 使用基础模板（骨架代码）
+		allFiles = map[string]string{
+			"handler":    "handler.go.tmpl",
+			"service":    "service.go.tmpl",
+			"model":      "model.go.tmpl",
+			"repository": "repository.go.tmpl",
+			"schema":     "schema.go.tmpl",
+			"routes":     "routes.go.tmpl",
+		}
 	}
 
 	// 如果没有指定 layers，生成所有文件
@@ -79,6 +93,16 @@ func AddModule(moduleName string, layers []string) error {
 	for path, tmplName := range files {
 		// 跳过已存在的文件（幂等性）
 		if _, err := os.Stat(path); err == nil {
+			if dryRun {
+				fmt.Printf("  ⏭  %s (已存在，将跳过)\n", path)
+			}
+			continue
+		}
+
+		if dryRun {
+			// 预览模式：只显示将要生成的文件
+			fmt.Printf("  ✓ %s\n", path)
+			fmt.Printf("     模板: %s\n", tmplName)
 			continue
 		}
 
@@ -87,7 +111,7 @@ func AddModule(moduleName string, layers []string) error {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}
 
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			return err
 		}
 	}

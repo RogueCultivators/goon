@@ -8,9 +8,9 @@ import (
 	"github.com/RogueCultivators/goon/internal/template"
 )
 
-func InitProject(projectName, moduleName string, minimal bool) error {
+func InitProject(projectName, moduleName string, minimal bool, example bool) error {
 	// 创建项目目录（如果不存在）
-	if err := os.MkdirAll(projectName, 0755); err != nil {
+	if err := os.MkdirAll(projectName, 0o755); err != nil {
 		return err
 	}
 
@@ -28,6 +28,8 @@ func InitProject(projectName, moduleName string, minimal bool) error {
 		"pkg/response",
 		"pkg/logger",
 		"pkg/errors",
+		"scripts",
+		"docs",
 	}
 
 	// 完整模式额外目录
@@ -51,7 +53,7 @@ func InitProject(projectName, moduleName string, minimal bool) error {
 	}
 
 	for _, dir := range dirs {
-		if err := os.MkdirAll(filepath.Join(projectName, dir), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(projectName, dir), 0o755); err != nil {
 			return err
 		}
 	}
@@ -63,19 +65,25 @@ func InitProject(projectName, moduleName string, minimal bool) error {
 
 	// 核心文件（minimal 模式）
 	coreFiles := map[string]string{
-		"main.go":                           "main.go.tmpl",
-		"cmd/server/server.go":              "server.go.tmpl",
-		"internal/config/config.go":         "config.go.tmpl",
-		"internal/middleware/cors.go":       "cors.go.tmpl",
-		"internal/middleware/logger.go":     "logger_middleware.go.tmpl",
-		"internal/router/router.go":         "router.go.tmpl",
-		"pkg/response/response.go":          "response.go.tmpl",
-		"pkg/logger/logger.go":              "logger.go.tmpl",
-		"pkg/errors/errors.go":              "errors.go.tmpl",
-		"go.mod":                            "go.mod.tmpl",
-		"config.yaml":                       "config.yaml.tmpl",
-		".gitignore":                        ".gitignore.tmpl",
-		"README.md":                         "README.md.tmpl",
+		"main.go":                       "main.go.tmpl",
+		"cmd/server/server.go":          "server.go.tmpl",
+		"internal/config/config.go":     "config.go.tmpl",
+		"internal/middleware/cors.go":   "cors.go.tmpl",
+		"internal/middleware/logger.go": "logger_middleware.go.tmpl",
+		"internal/router/router.go":     "router.go.tmpl",
+		"pkg/response/response.go":      "response.go.tmpl",
+		"pkg/logger/logger.go":          "logger.go.tmpl",
+		"pkg/errors/errors.go":          "errors.go.tmpl",
+		"go.mod":                        "go.mod.tmpl",
+		"config.yaml":                   "config.yaml.tmpl",
+		".gitignore":                    ".gitignore.tmpl",
+		"README.md":                     "README.md.tmpl",
+		"Makefile":                      "Makefile.tmpl",
+		".env.example":                  ".env.example.tmpl",
+		"docker-compose.dev.yml":        "docker-compose.dev.yml.tmpl",
+		"scripts/setup.sh":              "setup.sh.tmpl",
+		"scripts/seed.sh":               "seed.sh.tmpl",
+		"docs/api.md":                   "api.md.tmpl",
 	}
 
 	// 完整模式额外文件
@@ -119,8 +127,89 @@ func InitProject(projectName, moduleName string, minimal bool) error {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}
 
-		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		// 为脚本文件设置执行权限
+		perm := os.FileMode(0o600)
+		if filepath.Ext(path) == ".sh" {
+			perm = 0o755
+		}
+
+		if err := os.WriteFile(fullPath, []byte(content), perm); err != nil {
 			return err
+		}
+	}
+
+	// 如果启用示例模式，生成 user 示例模块
+	if example {
+		// 创建 user 模块目录
+		userDir := filepath.Join(projectName, "internal", "user")
+		if err := os.MkdirAll(userDir, 0o755); err != nil {
+			return fmt.Errorf("创建 user 模块目录失败: %w", err)
+		}
+
+		// 生成示例模块文件
+		moduleData := template.ModuleData{
+			ModuleName:      "user",
+			CapitalizedName: "User",
+			ProjectModule:   moduleName,
+		}
+
+		exampleFiles := map[string]string{
+			"handler.go":    "handler_example.go.tmpl",
+			"service.go":    "service_example.go.tmpl",
+			"model.go":      "model_example.go.tmpl",
+			"repository.go": "repository_example.go.tmpl",
+			"schema.go":     "schema_example.go.tmpl",
+			"routes.go":     "routes.go.tmpl",
+		}
+
+		for fileName, tmplName := range exampleFiles {
+			fullPath := filepath.Join(userDir, fileName)
+
+			content, err := renderer.Render(tmplName, moduleData)
+			if err != nil {
+				return fmt.Errorf("渲染示例模板 %s 失败: %w", tmplName, err)
+			}
+
+			if err := os.WriteFile(fullPath, []byte(content), 0o600); err != nil {
+				return fmt.Errorf("写入示例文件 %s 失败: %w", fileName, err)
+			}
+		}
+
+		// 创建迁移目录和示例迁移文件
+		migrationsDir := filepath.Join(projectName, "migrations")
+		if err := os.MkdirAll(migrationsDir, 0o755); err != nil {
+			return fmt.Errorf("创建迁移目录失败: %w", err)
+		}
+
+		// 创建 users 表迁移
+		upMigration := `CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP
+);
+
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_status ON users(status);
+CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+`
+
+		downMigration := `DROP TABLE IF EXISTS users;
+`
+
+		upPath := filepath.Join(migrationsDir, "000001_create_users_table.up.sql")
+		downPath := filepath.Join(migrationsDir, "000001_create_users_table.down.sql")
+
+		if err := os.WriteFile(upPath, []byte(upMigration), 0o600); err != nil {
+			return fmt.Errorf("写入迁移文件失败: %w", err)
+		}
+
+		if err := os.WriteFile(downPath, []byte(downMigration), 0o600); err != nil {
+			return fmt.Errorf("写入迁移文件失败: %w", err)
 		}
 	}
 

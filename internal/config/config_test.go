@@ -31,8 +31,8 @@ naming:
 			expectedLayers: []string{"handler", "service"},
 		},
 		{
-			name: "empty config uses defaults",
-			configContent: ``,
+			name:           "empty config uses defaults",
+			configContent:  ``,
 			wantErr:        false,
 			checkLayers:    true,
 			expectedLayers: []string{"handler", "service", "model", "repository", "schema", "routes"},
@@ -53,7 +53,7 @@ naming:
 
 			if tt.configContent != "" {
 				configPath := filepath.Join(tmpDir, ".goonrc.yaml")
-				if err := os.WriteFile(configPath, []byte(tt.configContent), 0644); err != nil {
+				if err := os.WriteFile(configPath, []byte(tt.configContent), 0o644); err != nil {
 					t.Fatalf("Failed to create config file: %v", err)
 				}
 			}
@@ -136,7 +136,7 @@ func TestGenerateExample(t *testing.T) {
 	// 验证示例配置可以解析
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, ".goonrc.yaml")
-	if err := os.WriteFile(configPath, []byte(example), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(example), 0o644); err != nil {
 		t.Fatalf("Failed to write example config: %v", err)
 	}
 

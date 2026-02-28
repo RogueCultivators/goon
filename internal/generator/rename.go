@@ -65,13 +65,17 @@ func RenameModule(oldName, newName string, dryRun bool) error {
 
 	for _, file := range files {
 		if err := bm.BackupFile(file); err != nil {
-			bm.Rollback()
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("备份失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
+			}
 			return err
 		}
 
 		content, err := os.ReadFile(file)
 		if err != nil {
-			bm.Rollback()
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("读取文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
+			}
 			return fmt.Errorf("读取文件失败 %s: %w", file, err)
 		}
 
@@ -83,8 +87,10 @@ func RenameModule(oldName, newName string, dryRun bool) error {
 		// 更新变量名
 		newContent = strings.ReplaceAll(newContent, oldName, newName)
 
-		if err := os.WriteFile(file, []byte(newContent), 0644); err != nil {
-			bm.Rollback()
+		if err := os.WriteFile(file, []byte(newContent), 0o600); err != nil {
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("写入文件失败 %s: %w, 回滚错误: %v", file, err, rollbackErr)
+			}
 			return fmt.Errorf("写入文件失败 %s: %w", file, err)
 		}
 	}
@@ -94,13 +100,17 @@ func RenameModule(oldName, newName string, dryRun bool) error {
 	routerPath := filepath.Join("internal", "router", "router.go")
 	if _, err := os.Stat(routerPath); err == nil {
 		if err := bm.BackupFile(routerPath); err != nil {
-			bm.Rollback()
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("备份 router.go 失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
+			}
 			return err
 		}
 
 		content, err := os.ReadFile(routerPath)
 		if err != nil {
-			bm.Rollback()
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("读取 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
+			}
 			return fmt.Errorf("读取 router.go 失败: %w", err)
 		}
 
@@ -112,8 +122,10 @@ func RenameModule(oldName, newName string, dryRun bool) error {
 		// 更新路由注册
 		newContent = strings.ReplaceAll(newContent, fmt.Sprintf("%s.RegisterRoutes", oldName), fmt.Sprintf("%s.RegisterRoutes", newName))
 
-		if err := os.WriteFile(routerPath, []byte(newContent), 0644); err != nil {
-			bm.Rollback()
+		if err := os.WriteFile(routerPath, []byte(newContent), 0o600); err != nil {
+			if rollbackErr := bm.Rollback(); rollbackErr != nil {
+				return fmt.Errorf("写入 router.go 失败: %w, 回滚错误: %v", err, rollbackErr)
+			}
 			return fmt.Errorf("写入 router.go 失败: %w", err)
 		}
 	}
@@ -121,7 +133,9 @@ func RenameModule(oldName, newName string, dryRun bool) error {
 	// 4. 查找并更新所有引用此模块的文件
 	ui.Step("搜索并更新其他引用...")
 	if err := updateReferences(projectModule, oldName, newName, bm); err != nil {
-		bm.Rollback()
+		if rollbackErr := bm.Rollback(); rollbackErr != nil {
+			return fmt.Errorf("更新引用失败且回滚失败: %w, 回滚错误: %v", err, rollbackErr)
+		}
 		return err
 	}
 
@@ -164,7 +178,7 @@ func updateReferences(projectModule, oldName, newName string, bm *utils.BackupMa
 			}
 
 			newContent := strings.ReplaceAll(fileContent, oldImport, newImport)
-			if err := os.WriteFile(file, []byte(newContent), 0644); err != nil {
+			if err := os.WriteFile(file, []byte(newContent), 0o600); err != nil {
 				return fmt.Errorf("更新文件失败 %s: %w", file, err)
 			}
 		}

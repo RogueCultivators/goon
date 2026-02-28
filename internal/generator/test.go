@@ -81,7 +81,7 @@ func GenerateModuleTests(moduleName string, layers []string) error {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}
 
-		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(testFile, []byte(content), 0o600); err != nil {
 			return fmt.Errorf("写入文件 %s 失败: %w", testFile, err)
 		}
 	}
@@ -105,8 +105,8 @@ func GenerateAllTests() error {
 
 		// 跳过特殊目录
 		if entry.Name() == "config" || entry.Name() == "middleware" ||
-		   entry.Name() == "router" || entry.Name() == "sqlc" ||
-		   entry.Name() == "template" {
+			entry.Name() == "router" || entry.Name() == "sqlc" ||
+			entry.Name() == "template" {
 			continue
 		}
 

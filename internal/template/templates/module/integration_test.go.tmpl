@@ -1,0 +1,235 @@
+package {{.ModuleName}}_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"{{.ProjectModule}}/internal/{{.ModuleName}}"
+	"{{.ProjectModule}}/internal/config"
+	"{{.ProjectModule}}/internal/router"
+	"{{.ProjectModule}}/pkg/database"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
+	"gorm.io/gorm"
+)
+
+// {{.CapitalizedName}}IntegrationTestSuite 集成测试套件
+type {{.CapitalizedName}}IntegrationTestSuite struct {
+	suite.Suite
+	db     *gorm.DB
+	router *gin.Engine
+}
+
+// SetupSuite 在所有测试开始前执行一次
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) SetupSuite() {
+	// 设置测试模式
+	gin.SetMode(gin.TestMode)
+
+	// 连接测试数据库
+	cfg := &config.DatabaseConfig{
+		Host:     "localhost",
+		Port:     5432,
+		User:     "test",
+		Password: "test",
+		DBName:   "test_db",
+		SSLMode:  "disable",
+	}
+
+	db, err := database.Connect(cfg)
+	if err != nil {
+		suite.T().Fatalf("连接测试数据库失败: %v", err)
+	}
+	suite.db = db
+
+	// 自动迁移
+	err = suite.db.AutoMigrate(&{{.ModuleName}}.{{.CapitalizedName}}{})
+	if err != nil {
+		suite.T().Fatalf("数据库迁移失败: %v", err)
+	}
+
+	// 设置路由
+	suite.router = router.SetupRouter(suite.db)
+}
+
+// TearDownSuite 在所有测试结束后执行一次
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TearDownSuite() {
+	// 清理测试数据
+	suite.db.Exec("DROP TABLE IF EXISTS {{.ModuleName}}s")
+	
+	// 关闭数据库连接
+	sqlDB, _ := suite.db.DB()
+	sqlDB.Close()
+}
+
+// SetupTest 在每个测试开始前执行
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) SetupTest() {
+	// 清空表数据
+	suite.db.Exec("TRUNCATE TABLE {{.ModuleName}}s RESTART IDENTITY CASCADE")
+}
+
+// TestCreate 测试创建接口
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestCreate() {
+	req := &{{.ModuleName}}.CreateRequest{
+		// TODO: 填充测试数据
+	}
+
+	body, _ := json.Marshal(req)
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("POST", "/api/v1/{{.ModuleName}}", bytes.NewBuffer(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	suite.router.ServeHTTP(w, httpReq)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), float64(0), response["code"])
+
+	// 验证数据库中的记录
+	var count int64
+	suite.db.Model(&{{.ModuleName}}.{{.CapitalizedName}}{}).Count(&count)
+	assert.Equal(suite.T(), int64(1), count)
+}
+
+// TestGetByID 测试获取单个记录接口
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestGetByID() {
+	// 先创建一条记录
+	record := &{{.ModuleName}}.{{.CapitalizedName}}{
+		// TODO: 填充测试数据
+	}
+	suite.db.Create(record)
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("GET", fmt.Sprintf("/api/v1/{{.ModuleName}}/%d", record.ID), nil)
+
+	suite.router.ServeHTTP(w, httpReq)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), float64(0), response["code"])
+}
+
+// TestList 测试列表查询接口
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestList() {
+	// 创建多条测试记录
+	for i := 0; i < 5; i++ {
+		record := &{{.ModuleName}}.{{.CapitalizedName}}{
+			// TODO: 填充测试数据
+		}
+		suite.db.Create(record)
+	}
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("GET", "/api/v1/{{.ModuleName}}?page=1&page_size=10", nil)
+
+	suite.router.ServeHTTP(w, httpReq)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(suite.T(), err)
+	assert.Equal(suite.T(), float64(0), response["code"])
+
+	data := response["data"].(map[string]interface{})
+	items := data["items"].([]interface{})
+	assert.Equal(suite.T(), 5, len(items))
+	assert.Equal(suite.T(), float64(5), data["total"])
+}
+
+// TestUpdate 测试更新接口
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestUpdate() {
+	// 先创建一条记录
+	record := &{{.ModuleName}}.{{.CapitalizedName}}{
+		// TODO: 填充测试数据
+	}
+	suite.db.Create(record)
+
+	updateReq := &{{.ModuleName}}.UpdateRequest{
+		// TODO: 填充更新数据
+	}
+
+	body, _ := json.Marshal(updateReq)
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("PUT", fmt.Sprintf("/api/v1/{{.ModuleName}}/%d", record.ID), bytes.NewBuffer(body))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	suite.router.ServeHTTP(w, httpReq)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	// 验证数据库中的记录已更新
+	var updated {{.ModuleName}}.{{.CapitalizedName}}
+	suite.db.First(&updated, record.ID)
+	// TODO: 验证更新后的字段值
+}
+
+// TestDelete 测试删除接口
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestDelete() {
+	// 先创建一条记录
+	record := &{{.ModuleName}}.{{.CapitalizedName}}{
+		// TODO: 填充测试数据
+	}
+	suite.db.Create(record)
+
+	w := httptest.NewRecorder()
+	httpReq, _ := http.NewRequest("DELETE", fmt.Sprintf("/api/v1/{{.ModuleName}}/%d", record.ID), nil)
+
+	suite.router.ServeHTTP(w, httpReq)
+
+	assert.Equal(suite.T(), http.StatusOK, w.Code)
+
+	// 验证数据库中的记录已删除（软删除）
+	var count int64
+	suite.db.Model(&{{.ModuleName}}.{{.CapitalizedName}}{}).Where("id = ?", record.ID).Count(&count)
+	assert.Equal(suite.T(), int64(0), count)
+}
+
+// TestConcurrentCreate 测试并发创建
+func (suite *{{.CapitalizedName}}IntegrationTestSuite) TestConcurrentCreate() {
+	concurrency := 10
+	done := make(chan bool, concurrency)
+
+	for i := 0; i < concurrency; i++ {
+		go func(index int) {
+			req := &{{.ModuleName}}.CreateRequest{
+				// TODO: 填充测试数据
+			}
+
+			body, _ := json.Marshal(req)
+			w := httptest.NewRecorder()
+			httpReq, _ := http.NewRequest("POST", "/api/v1/{{.ModuleName}}", bytes.NewBuffer(body))
+			httpReq.Header.Set("Content-Type", "application/json")
+
+			suite.router.ServeHTTP(w, httpReq)
+
+			assert.Equal(suite.T(), http.StatusOK, w.Code)
+			done <- true
+		}(i)
+	}
+
+	// 等待所有请求完成
+	for i := 0; i < concurrency; i++ {
+		<-done
+	}
+
+	// 验证数据库中的记录数
+	var count int64
+	suite.db.Model(&{{.ModuleName}}.{{.CapitalizedName}}{}).Count(&count)
+	assert.Equal(suite.T(), int64(concurrency), count)
+}
+
+// TestIntegration 运行集成测试套件
+func TestIntegration(t *testing.T) {
+	suite.Run(t, new({{.CapitalizedName}}IntegrationTestSuite))
+}

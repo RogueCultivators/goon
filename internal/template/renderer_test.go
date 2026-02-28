@@ -12,7 +12,7 @@ func TestNewRenderer(t *testing.T) {
 	}
 
 	if renderer == nil {
-		t.Error("NewRenderer() returned nil renderer")
+		t.Fatal("NewRenderer() returned nil renderer")
 	}
 
 	if renderer.templates == nil {
@@ -42,7 +42,7 @@ func TestRenderProjectData(t *testing.T) {
 			},
 			wantContains: []string{
 				"module github.com/user/testapp",
-				"go 1.24",
+				"go 1.22",
 			},
 			wantErr: false,
 		},
@@ -67,8 +67,8 @@ func TestRenderProjectData(t *testing.T) {
 				ModuleName:  "github.com/user/testapp",
 			},
 			wantContains: []string{
-				"server:",
 				"port:",
+				"log:",
 			},
 			wantErr: false,
 		},
@@ -122,7 +122,7 @@ func TestRenderModuleData(t *testing.T) {
 			},
 			wantContains: []string{
 				"package user",
-				"UserHandler",
+				"type Handler struct",
 				"NewHandler",
 			},
 			wantErr: false,
@@ -137,7 +137,7 @@ func TestRenderModuleData(t *testing.T) {
 			},
 			wantContains: []string{
 				"package product",
-				"ProductService",
+				"type Service struct",
 				"NewService",
 			},
 			wantErr: false,

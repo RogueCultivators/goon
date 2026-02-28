@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/RogueCultivators/goon/internal/utils"
 )
 
 func TestAddModule(t *testing.T) {
@@ -69,11 +71,11 @@ func TestAddModule(t *testing.T) {
 
 			// Create a minimal go.mod file
 			goModContent := "module testproject\n\ngo 1.24\n"
-			if err := os.WriteFile("go.mod", []byte(goModContent), 0644); err != nil {
+			if err := os.WriteFile("go.mod", []byte(goModContent), 0o644); err != nil {
 				t.Fatalf("Failed to create go.mod: %v", err)
 			}
 
-			err := AddModule(tt.moduleName, tt.layers)
+			err := AddModule(tt.moduleName, tt.layers, false, false)
 
 			if tt.wantErr {
 				if err == nil {
@@ -113,10 +115,10 @@ func TestAddModule(t *testing.T) {
 
 func TestGetModuleNameFromGoMod(t *testing.T) {
 	tests := []struct {
-		name        string
+		name         string
 		goModContent string
-		want        string
-		wantErr     bool
+		want         string
+		wantErr      bool
 	}{
 		{
 			name:         "valid go.mod",
@@ -151,7 +153,7 @@ func TestGetModuleNameFromGoMod(t *testing.T) {
 			defer os.Chdir(oldWd)
 			os.Chdir(tmpDir)
 
-			if err := os.WriteFile("go.mod", []byte(tt.goModContent), 0644); err != nil {
+			if err := os.WriteFile("go.mod", []byte(tt.goModContent), 0o644); err != nil {
 				t.Fatalf("Failed to create go.mod: %v", err)
 			}
 
@@ -183,12 +185,12 @@ func TestAddModuleIdempotency(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	goModContent := "module testproject\n\ngo 1.24\n"
-	if err := os.WriteFile("go.mod", []byte(goModContent), 0644); err != nil {
+	if err := os.WriteFile("go.mod", []byte(goModContent), 0o644); err != nil {
 		t.Fatalf("Failed to create go.mod: %v", err)
 	}
 
 	// First call
-	err := AddModule("user", []string{"handler"})
+	err := AddModule("user", []string{"handler"}, false, false)
 	if err != nil {
 		t.Fatalf("First AddModule() call failed: %v", err)
 	}
@@ -201,7 +203,7 @@ func TestAddModuleIdempotency(t *testing.T) {
 	}
 
 	// Second call (should be idempotent)
-	err = AddModule("user", []string{"handler"})
+	err = AddModule("user", []string{"handler"}, false, false)
 	if err != nil {
 		t.Fatalf("Second AddModule() call failed: %v", err)
 	}
@@ -232,7 +234,6 @@ func containsSubstring(s, substr string) bool {
 }
 
 func normalizeModuleName(name string) string {
-	// Simple normalization for testing
-	// In real code, this would use utils.ToSnakeCase
-	return name
+	// Use the same normalization as the actual implementation
+	return utils.ToSnakeCase(name)
 }

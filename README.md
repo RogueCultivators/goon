@@ -21,6 +21,7 @@
 - 🔄 自动路由注册，无需手动修改路由文件
 - 🔤 智能命名转换，支持驼峰、下划线等多种命名格式
 - 🔁 幂等性支持，可安全重复执行命令
+- ✨ **示例代码生成**，一键生成可运行的完整项目（包含 User 模块、数据库迁移、Makefile 等）
 
 ## 安装
 
@@ -38,13 +39,72 @@ go build -o goon main.go
 go install github.com/yourusername/goon@latest
 ```
 
+## 快速开始
+
+### 方式 1: 交互式向导（推荐新手）⭐
+
+```bash
+goon init --interactive
+```
+
+通过问答方式配置项目：
+- 项目名称和 Go module
+- 数据库选择（PostgreSQL/MySQL/SQLite/无）
+- 认证方式（JWT/Session）
+- Docker 支持
+- 是否生成示例模块
+
+### 方式 2: 5 分钟启动一个可运行的 API 服务
+
+```bash
+# 1. 初始化项目（包含完整示例代码）
+goon init blog --example
+
+# 2. 进入项目目录
+cd blog
+
+# 3. 下载依赖
+go mod download
+
+# 4. 启动数据库（PostgreSQL）
+docker-compose up -d
+
+# 5. 运行数据库迁移
+make migrate-up
+
+# 6. 启动服务
+go run main.go
+```
+
+现在你可以访问：
+- 健康检查：`http://localhost:8080/health`
+- 用户列表：`http://localhost:8080/api/v1/user`
+- 创建用户：`POST http://localhost:8080/api/v1/user`
+
+生成的示例包含：
+- ✅ 完整的 User CRUD API（带分页、搜索、验证）
+- ✅ PostgreSQL 数据库集成
+- ✅ 数据库迁移文件
+- ✅ Makefile 开发工具链
+- ✅ Docker Compose 配置（开发环境）
+- ✅ 环境变量配置示例
+- ✅ 初始化脚本（scripts/setup.sh）
+- ✅ 数据填充脚本（scripts/seed.sh）
+- ✅ API 文档模板（docs/api.md）
+
 ## 使用方法
 
 ### 初始化新项目
 
 ```bash
+# 交互式向导（推荐新手）⭐
+goon init --interactive
+
 # 完整模式（包含所有功能包）
 goon init myproject
+
+# 示例模式（生成可运行的完整项目）⭐ 推荐
+goon init myproject --example
 
 # Minimal 模式（只生成核心文件）
 goon init myproject --minimal
@@ -54,7 +114,9 @@ goon init myproject -m github.com/username/myproject
 ```
 
 可选参数：
+- `-i, --interactive`: 交互式向导模式，通过问答配置项目 ⭐ 推荐新手使用
 - `-m, --module`: 指定 Go module 名称（默认使用项目名称）
+- `--example`: 生成包含完整实现的示例代码（User 模块 + 数据库迁移 + Makefile）⭐ 推荐新手使用
 - `--minimal`: 只生成核心文件和目录（响应、日志、错误处理等）
 
 **幂等性支持**：可以安全地重复运行 `goon init` 命令，已存在的文件会被跳过，不会被覆盖。
@@ -67,11 +129,14 @@ cd myproject
 # 生成完整模块（handler, service, model, repository, schema）
 goon add user
 
+# 生成包含完整实现的示例代码 ⭐ 推荐
+goon add product --example
+
 # 只生成指定的层
-goon add product --layers=handler,service
+goon add order --layers=handler,service
 
 # 生成模块但不自动注册路由
-goon add order --register=false
+goon add payment --register=false
 
 # 支持多种命名格式（自动转换）
 goon add userProfile      # 生成 user_profile 目录
@@ -79,15 +144,21 @@ goon add user-management  # 生成 user_management 目录
 ```
 
 可选参数：
-- `-l, --layers`: 指定要生成的层，可选值：handler, service, model, repository, schema
+- `-l, --layers`: 指定要生成的层，可选值：handler, service, model, repository, schema, routes
+- `--example`: 生成包含完整实现的示例代码（包含实际字段、验证规则、业务逻辑）⭐ 推荐
 - `--register`: 是否自动在 router.go 中注册路由（默认为 true）
 
 生成的文件位于 `internal/[module_name]/` 目录：
 - `handler.go` - HTTP 处理器
 - `service.go` - 业务逻辑层
-- `model.go` - 数据模型
+- `model.go` - 数据模型（GORM）
 - `repository.go` - 数据访问层
 - `schema.go` - 请求/响应结构体
+- `routes.go` - 路由注册
+
+**基础模板 vs 示例模板**：
+- 基础模板（默认）：生成代码骨架，包含 TODO 注释，需要手动填充业务逻辑
+- 示例模板（--example）：生成完整可运行的代码，包含实际字段、验证规则、CRUD 实现
 
 **幂等性支持**：可以安全地重复运行 `goon add` 命令，已存在的文件会被跳过，不会被覆盖。这对于补充生成缺失的层非常有用。
 
@@ -149,10 +220,19 @@ myproject/
 │   │   └── pagination.go      # 分页工具
 │   └── testutil/
 │       └── testutil.go        # 测试工具
+├── scripts/
+│   ├── setup.sh               # 项目初始化脚本
+│   └── seed.sh                # 数据填充脚本
+├── docs/
+│   └── api.md                 # API 文档
+├── migrations/                # 数据库迁移文件
 ├── config.yaml                # 配置文件
-├── sqlc.yaml                  # SQLC 配置
+├── .env.example               # 环境变量示例
+├── Makefile                   # 开发工具链
+├── docker-compose.dev.yml     # 开发环境
+├── docker-compose.yaml        # 生产环境
 ├── Dockerfile                 # Docker 镜像
-├── docker-compose.yaml        # Docker Compose
+├── sqlc.yaml                  # SQLC 配置
 ├── go.mod
 └── main.go
 ```
@@ -199,21 +279,49 @@ internal/template/templates/
 │   ├── main.go.tmpl
 │   ├── server.go.tmpl
 │   ├── config.go.tmpl
-│   ├── cors.go.tmpl
-│   ├── logger_middleware.go.tmpl
-│   ├── router.go.tmpl
-│   ├── response.go.tmpl
-│   ├── logger.go.tmpl
-│   ├── go.mod.tmpl
-│   ├── config.yaml.tmpl
-│   ├── .gitignore.tmpl
-│   └── README.md.tmpl
+│   ├── database.go.tmpl
+│   ├── Makefile.tmpl
+│   ├── .env.example.tmpl
+│   └── ...
 └── module/                    # 模块生成模板
-    ├── handler.go.tmpl
+    ├── handler.go.tmpl        # 基础模板（骨架代码）
     ├── service.go.tmpl
     ├── model.go.tmpl
-    └── repository.go.tmpl
+    ├── repository.go.tmpl
+    ├── schema.go.tmpl
+    ├── routes.go.tmpl
+    ├── handler_example.go.tmpl    # 示例模板（完整实现）⭐
+    ├── service_example.go.tmpl    # 示例模板（完整实现）⭐
+    ├── model_example.go.tmpl      # 示例模板（完整实现）⭐
+    ├── repository_example.go.tmpl # 示例模板（完整实现）⭐
+    └── schema_example.go.tmpl     # 示例模板（完整实现）⭐
 ```
+
+### 基础模板 vs 示例模板
+
+**基础模板**（默认）：
+- 生成代码骨架，包含 TODO 注释
+- 适合有经验的开发者，需要手动填充业务逻辑
+- 文件名：`handler.go.tmpl`, `service.go.tmpl` 等
+
+**示例模板**（--example）：
+- 生成完整可运行的代码
+- 包含实际字段定义（ID, Name, Email, Password, Status, CreatedAt, UpdatedAt）
+- 包含数据验证规则（email 格式、密码长度、必填字段等）
+- 包含完整的 CRUD 实现（分页、搜索、排序）
+- 包含错误处理和业务逻辑（密码加密、唯一性检查）
+- 文件名：`handler_example.go.tmpl`, `service_example.go.tmpl` 等
+
+**示例模板包含的功能**：
+- ✅ GORM 模型定义（带索引、软删除）
+- ✅ 请求验证（gin binding tags）
+- ✅ 分页查询（page, page_size）
+- ✅ 关键词搜索（LIKE 查询）
+- ✅ 状态过滤
+- ✅ 密码加密（bcrypt）
+- ✅ 邮箱唯一性检查
+- ✅ 统一错误处理
+- ✅ 结构化响应格式
 
 ### 模板变量
 
@@ -257,6 +365,44 @@ func NewHandler(service *Service) *Handler {
 }
 ```
 
+### 测试模板
+
+Goon 自动为每个模块生成测试文件：
+
+**单元测试**：
+- `handler_test.go` - Handler 层单元测试（使用 mock Service）
+- `service_test.go` - Service 层单元测试（使用 mock Repository）
+
+**集成测试**：
+- `integration_test.go` - 完整的端到端集成测试（使用真实数据库）
+
+**测试特性**：
+- 使用 `testify/assert` 和 `testify/mock` 进行断言和 mock
+- 包含完整的 CRUD 测试用例
+- 集成测试使用 `testify/suite` 进行测试套件管理
+- 自动设置和清理测试数据库
+- 支持并发测试
+
+**运行测试**：
+```bash
+# 运行所有测试
+go test ./...
+
+# 运行特定模块的测试
+go test ./internal/user/...
+
+# 运行单元测试（排除集成测试）
+go test -short ./...
+
+# 运行集成测试
+go test -run Integration ./...
+
+# 查看测试覆盖率
+go test -cover ./...
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
 ## 开发
 
 ### 项目结构
@@ -297,6 +443,80 @@ goon/
 直接编辑 `internal/template/templates/` 下的 `.tmpl` 文件，然后重新构建。
 
 ## 示例
+
+### 使用初始化脚本快速开始 ⭐
+
+```bash
+# 1. 初始化项目
+goon init blog --example
+
+cd blog
+
+# 2. 运行初始化脚本（自动完成所有设置）
+./scripts/setup.sh
+
+# 3. 启动服务
+go run main.go
+```
+
+初始化脚本会自动：
+- 检查必要工具（Go, Docker, Docker Compose）
+- 安装 Go 依赖
+- 启动数据库服务
+- 运行数据库迁移
+- 创建必要的目录
+
+### 5 分钟创建可运行的 API 服务（推荐）⭐
+
+```bash
+# 1. 初始化项目（包含完整示例）
+goon init blog --example
+
+cd blog
+
+# 2. 查看生成的文件
+ls -la
+# 包含：Makefile, .env.example, docker-compose.yaml, migrations/
+
+# 3. 启动数据库
+docker-compose up -d
+
+# 4. 运行迁移
+make migrate-up
+
+# 5. 启动服务
+go run main.go
+
+# 6. 测试 API
+curl http://localhost:8080/api/v1/user
+curl -X POST http://localhost:8080/api/v1/user \
+  -H "Content-Type: application/json" \
+  -d '{"name":"张三","email":"zhangsan@example.com","password":"password123"}'
+```
+
+生成的示例包含完整的 User CRUD API，支持：
+- ✅ 创建用户（带密码加密）
+- ✅ 获取用户列表（分页 + 搜索 + 状态过滤）
+- ✅ 获取单个用户
+- ✅ 更新用户信息
+- ✅ 删除用户（软删除）
+
+### 使用数据填充脚本
+
+```bash
+# 填充测试数据
+./scripts/seed.sh
+
+# 或使用 Makefile
+make seed
+```
+
+数据填充脚本会自动创建测试用户：
+- 张三 (zhangsan@example.com)
+- 李四 (lisi@example.com)
+- 王五 (wangwu@example.com)
+
+默认密码：password123
 
 ### 创建一个完整的用户管理模块
 
@@ -398,15 +618,21 @@ database:
 
 ```bash
 goon init <项目名称> [选项]
+# 或
+goon init --interactive
 ```
 
 选项：
+- `-i, --interactive`: 交互式向导模式，通过问答配置项目 ⭐ 推荐新手使用
 - `-m, --module <名称>`: 指定 Go module 名称（默认使用项目名称）
+- `--example`: 生成包含完整实现的示例代码（User 模块 + 数据库迁移 + Makefile）⭐ 推荐
 - `--minimal`: 只生成核心文件和目录
 
 示例：
 ```bash
+goon init --interactive           # 推荐：交互式向导
 goon init myapp
+goon init myapp --example          # 推荐：生成可运行的完整项目
 goon init myapp --minimal
 goon init myapp -m github.com/user/myapp
 ```
@@ -420,15 +646,20 @@ goon add <模块名称> [选项]
 ```
 
 选项：
-- `-l, --layers <层列表>`: 指定要生成的层，逗号分隔（handler,service,model,repository,schema）
+- `-l, --layers <层列表>`: 指定要生成的层，逗号分隔（handler,service,model,repository,schema,routes）
+- `--example`: 生成包含完整实现的示例代码（包含实际字段、验证规则、业务逻辑）⭐ 推荐
 - `--register`: 是否自动注册路由（默认为 true）
+- `--dry-run`: 预览将要生成的文件，不实际创建 🆕
+- `-v, --verbose`: 显示详细日志
 
 示例：
 ```bash
 goon add user
-goon add product --layers=handler,service
-goon add order --register=false
-goon add userProfile  # 支持驼峰命名
+goon add product --example         # 推荐：生成完整可运行的代码
+goon add order --layers=handler,service
+goon add payment --register=false
+goon add userProfile               # 支持驼峰命名
+goon add user --dry-run            # 🆕 预览将生成的文件
 ```
 
 ### goon add pkg
@@ -476,6 +707,26 @@ goon list-pkg
 ```
 
 显示可以通过 `goon add pkg` 添加的所有功能包。
+
+### goon template
+
+模板管理命令。
+
+```bash
+goon template list [选项]
+```
+
+选项：
+- `--type <类型>`: 指定模板类型（project/module）
+
+示例：
+```bash
+goon template list                 # 列出所有可用模板
+goon template list --type=module   # 只列出模块模板
+goon template list --type=project  # 只列出项目模板
+```
+
+显示所有可用的模板文件，包括基础模板和示例模板。
 
 ### goon remove
 
@@ -545,6 +796,59 @@ goon add order_history
 goon add userProfile
 goon add orderHistory
 ```
+
+## 常见问题 (FAQ)
+
+### Q: 如何更改数据库类型？
+
+A: 编辑 `config.yaml` 中的 database 配置，或修改 `.env` 文件中的数据库连接参数。支持 PostgreSQL、MySQL 和 SQLite。
+
+### Q: 如何添加自定义中间件？
+
+A: 在 `internal/middleware/` 目录下创建新的中间件文件，然后在 `internal/router/router.go` 中注册：
+
+```go
+r.Use(middleware.YourCustomMiddleware())
+```
+
+### Q: 生成的代码可以修改吗？
+
+A: 可以。生成的代码是起点，你可以根据需求自由修改。Goon 支持幂等性，重复运行命令不会覆盖已存在的文件。
+
+### Q: 如何自定义模板？
+
+A: 目前模板嵌入在二进制文件中。未来版本将支持外部模板和模板市场。
+
+### Q: --example 和默认模式有什么区别？
+
+A: 默认模式生成代码骨架（包含 TODO 注释），需要手动填充业务逻辑。--example 模式生成完整可运行的代码，包含实际字段、验证规则和 CRUD 实现。
+
+### Q: 如何处理数据库迁移？
+
+A: 使用生成的 Makefile：
+- `make migrate-up` - 执行迁移
+- `make migrate-down` - 回滚迁移
+- `make migrate-create NAME=xxx` - 创建新迁移
+
+### Q: 生成的项目支持哪些 Go 版本？
+
+A: 推荐使用 Go 1.22 或更高版本。
+
+### Q: 如何部署生成的项目？
+
+A: 项目包含 Dockerfile 和 docker-compose.yaml，可以直接使用 Docker 部署：
+
+```bash
+docker-compose up -d
+```
+
+### Q: 遇到 "module not found" 错误怎么办？
+
+A: 运行 `go mod download` 下载依赖，或使用 `go mod tidy` 清理依赖。
+
+### Q: 如何启用 HTTPS？
+
+A: 修改 `cmd/server/server.go`，使用 `router.RunTLS()` 替代 `router.Run()`，并提供证书文件路径。
 
 ## 贡献
 
