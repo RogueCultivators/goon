@@ -77,7 +77,7 @@ func AddPackage(pkgName string) error {
 
 		// 确保目录存在
 		dir := filepath.Dir(path)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("创建目录失败: %w", err)
 		}
 
@@ -86,7 +86,7 @@ func AddPackage(pkgName string) error {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}
 
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			return fmt.Errorf("写入文件失败: %w", err)
 		}
 

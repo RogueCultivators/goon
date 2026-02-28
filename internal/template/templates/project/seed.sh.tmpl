@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# {{.ProjectName}} 数据填充脚本
+
+set -e
+
+echo "🌱 开始填充测试数据..."
+
+# 检查数据库连接
+echo "📋 检查数据库连接..."
+
+# 从配置文件读取数据库信息
+DB_HOST=${DB_HOST:-localhost}
+DB_PORT=${DB_PORT:-5432}
+DB_USER=${DB_USER:-postgres}
+DB_PASSWORD=${DB_PASSWORD:-postgres}
+DB_NAME=${DB_NAME:-{{.ProjectName}}}
+
+# 测试数据库连接
+export PGPASSWORD=$DB_PASSWORD
+if ! psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c '\q' 2>/dev/null; then
+    echo "❌ 错误: 无法连接到数据库"
+    echo "   请确保数据库服务已启动: docker-compose up -d"
+    exit 1
+fi
+
+echo "✅ 数据库连接成功"
+
+# 填充示例数据
+echo "📝 填充示例数据..."
+
+# 示例: 创建测试用户
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME <<EOF
+-- 清空现有数据（可选）
+-- TRUNCATE TABLE users CASCADE;
+
+-- 插入测试用户
+INSERT INTO users (name, email, password, status, created_at, updated_at) VALUES
+('张三', 'zhangsan@example.com', '\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'active', NOW(), NOW()),
+('李四', 'lisi@example.com', '\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'active', NOW(), NOW()),
+('王五', 'wangwu@example.com', '\$2a\$10\$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'inactive', NOW(), NOW())
+ON CONFLICT (email) DO NOTHING;
+
+EOF
+
+echo "✅ 测试数据填充完成"
+
+echo ""
+echo "🎉 数据填充成功！"
+echo ""
+echo "测试账号:"
+echo "  邮箱: zhangsan@example.com"
+echo "  密码: password123"
+echo ""

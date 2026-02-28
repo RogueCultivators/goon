@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +13,7 @@ func TestBackupManager(t *testing.T) {
 	originalContent := []byte("original content")
 
 	// 创建测试文件
-	if err := os.WriteFile(testFile, originalContent, 0644); err != nil {
+	if err := os.WriteFile(testFile, originalContent, 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -25,13 +26,13 @@ func TestBackupManager(t *testing.T) {
 
 	// 修改文件
 	newContent := []byte("modified content")
-	if err := os.WriteFile(testFile, newContent, 0644); err != nil {
+	if err := os.WriteFile(testFile, newContent, 0o644); err != nil {
 		t.Fatalf("Failed to modify file: %v", err)
 	}
 
 	// 验证文件已修改
 	content, _ := os.ReadFile(testFile)
-	if string(content) != string(newContent) {
+	if !bytes.Equal(content, newContent) {
 		t.Errorf("File was not modified correctly")
 	}
 
@@ -42,7 +43,7 @@ func TestBackupManager(t *testing.T) {
 
 	// 验证文件已恢复
 	content, _ = os.ReadFile(testFile)
-	if string(content) != string(originalContent) {
+	if !bytes.Equal(content, originalContent) {
 		t.Errorf("File was not restored correctly, got %s, want %s", string(content), string(originalContent))
 	}
 }
@@ -59,7 +60,7 @@ func TestBackupManagerNewFile(t *testing.T) {
 	}
 
 	// 创建新文件
-	if err := os.WriteFile(newFile, []byte("new content"), 0644); err != nil {
+	if err := os.WriteFile(newFile, []byte("new content"), 0o644); err != nil {
 		t.Fatalf("Failed to create new file: %v", err)
 	}
 

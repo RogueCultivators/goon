@@ -1,0 +1,138 @@
+package {{.ModuleName}}
+
+import (
+	"fmt"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+type Service struct {
+	repo *Repository
+}
+
+func NewService(repo *Repository) *Service {
+	return &Service{
+		repo: repo,
+	}
+}
+
+// List 获取列表（支持分页和搜索）
+func (s *Service) List(req *ListRequest) (*ListResponse, error) {
+	// 设置默认值
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
+	}
+
+	items, total, err := s.repo.FindAll(req.Page, req.PageSize, req.Keyword, req.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为响应格式
+	responses := make([]*Response, 0, len(items))
+	for _, item := range items {
+		responses = append(responses, &Response{
+			ID:        item.ID,
+			Name:      item.Name,
+			Email:     item.Email,
+			Status:    item.Status,
+			CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt: item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+
+	return &ListResponse{
+		Total:    total,
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		Items:    responses,
+	}, nil
+}
+
+// GetByID 根据ID获取详情
+func (s *Service) GetByID(id uint) (*Response, error) {
+	item, err := s.repo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Response{
+		ID:        item.ID,
+		Name:      item.Name,
+		Email:     item.Email,
+		Status:    item.Status,
+		CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	}, nil
+}
+
+// Create 创建记录
+func (s *Service) Create(req *CreateRequest) error {
+	// 检查邮箱是否已存在
+	existing, err := s.repo.FindByEmail(req.Email)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		return fmt.Errorf("邮箱已被使用")
+	}
+
+	// 加密密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("密码加密失败: %w", err)
+	}
+
+	item := &{{.CapitalizedName}}{
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Status:   "active",
+	}
+
+	return s.repo.Create(item)
+}
+
+// Update 更新记录
+func (s *Service) Update(id uint, req *UpdateRequest) error {
+	item, err := s.repo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	// 如果更新邮箱，检查是否已被使用
+	if req.Email != "" && req.Email != item.Email {
+		existing, err := s.repo.FindByEmail(req.Email)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			return fmt.Errorf("邮箱已被使用")
+		}
+		item.Email = req.Email
+	}
+
+	// 更新字段
+	if req.Name != "" {
+		item.Name = req.Name
+	}
+	if req.Status != "" {
+		item.Status = req.Status
+	}
+
+	return s.repo.Update(item)
+}
+
+// Delete 删除记录
+func (s *Service) Delete(id uint) error {
+	// 检查记录是否存在
+	_, err := s.repo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	return s.repo.Delete(id)
+}

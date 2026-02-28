@@ -26,6 +26,9 @@ type DatabaseConfig struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
+	SSLMode  string `yaml:"sslmode"`
+	MaxIdle  int    `yaml:"max_idle"`
+	MaxOpen  int    `yaml:"max_open"`
 }
 
 func Load() *Config {
@@ -39,6 +42,14 @@ func Load() *Config {
 	viper.SetDefault("log.output", "console")
 	viper.SetDefault("log.file_path", "logs/app.log")
 	viper.SetDefault("log.add_source", false)
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", 5432)
+	viper.SetDefault("database.user", "postgres")
+	viper.SetDefault("database.password", "postgres")
+	viper.SetDefault("database.dbname", "{{.ProjectName}}")
+	viper.SetDefault("database.sslmode", "disable")
+	viper.SetDefault("database.max_idle", 10)
+	viper.SetDefault("database.max_open", 100)
 
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("配置文件读取失败，使用默认配置: %v", err)

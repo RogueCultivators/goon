@@ -64,7 +64,7 @@ func (bm *BackupManager) Rollback() error {
 			}
 		} else {
 			// 恢复原文件内容
-			if err := os.WriteFile(backup.Path, backup.Content, 0644); err != nil {
+			if err := os.WriteFile(backup.Path, backup.Content, 0o600); err != nil {
 				errors = append(errors, fmt.Errorf("恢复文件失败 %s: %w", backup.Path, err))
 			}
 		}
@@ -122,11 +122,11 @@ func SanitizeInput(input string) string {
 	return result
 }
 
-func replaceAll(s, old, new string) string {
+func replaceAll(s, old, replacement string) string {
 	result := ""
 	for i := 0; i < len(s); i++ {
 		if i <= len(s)-len(old) && s[i:i+len(old)] == old {
-			result += new
+			result += replacement
 			i += len(old) - 1
 		} else {
 			result += string(s[i])

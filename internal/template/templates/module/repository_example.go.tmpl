@@ -1,0 +1,85 @@
+package {{.ModuleName}}
+
+import (
+	"fmt"
+
+	"gorm.io/gorm"
+)
+
+type Repository struct {
+	db *gorm.DB
+}
+
+func NewRepository(db *gorm.DB) *Repository {
+	return &Repository{db: db}
+}
+
+// FindAll 查询所有记录（支持分页和搜索）
+func (r *Repository) FindAll(page, pageSize int, keyword, status string) ([]*{{.CapitalizedName}}, int64, error) {
+	var items []*{{.CapitalizedName}}
+	var total int64
+
+	query := r.db.Model(&{{.CapitalizedName}}{})
+
+	// 关键词搜索
+	if keyword != "" {
+		query = query.Where("name LIKE ? OR email LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	// 状态筛选
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// 统计总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	offset := (page - 1) * pageSize
+	if err := query.Offset(offset).Limit(pageSize).Order("created_at DESC").Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
+}
+
+// FindByID 根据ID查询
+func (r *Repository) FindByID(id uint) (*{{.CapitalizedName}}, error) {
+	var item {{.CapitalizedName}}
+	if err := r.db.First(&item, id).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("记录不存在")
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
+// FindByEmail 根据邮箱查询
+func (r *Repository) FindByEmail(email string) (*{{.CapitalizedName}}, error) {
+	var item {{.CapitalizedName}}
+	if err := r.db.Where("email = ?", email).First(&item).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
+// Create 创建记录
+func (r *Repository) Create(item *{{.CapitalizedName}}) error {
+	return r.db.Create(item).Error
+}
+
+// Update 更新记录
+func (r *Repository) Update(item *{{.CapitalizedName}}) error {
+	return r.db.Save(item).Error
+}
+
+// Delete 删除记录（软删除）
+func (r *Repository) Delete(id uint) error {
+	return r.db.Delete(&{{.CapitalizedName}}{}, id).Error
+}

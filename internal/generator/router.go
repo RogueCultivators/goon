@@ -59,7 +59,7 @@ func RegisterModuleRoute(moduleName string) error {
 	}
 
 	// 写回文件
-	if err := os.WriteFile(routerPath, []byte(fileContent), 0644); err != nil {
+	if err := os.WriteFile(routerPath, []byte(fileContent), 0o600); err != nil {
 		return fmt.Errorf("写入 router.go 失败: %w", err)
 	}
 

@@ -1,0 +1,115 @@
+.PHONY: help build run test clean docker-up docker-down migrate-up migrate-down seed lint
+
+help: ## 显示帮助信息
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+build: ## 构建项目
+	@echo "Building..."
+	@go build -o bin/{{.ProjectName}} main.go
+	@echo "Build complete: bin/{{.ProjectName}}"
+
+run: ## 运行项目
+	@go run main.go
+
+dev: ## 启动开发环境（热重载）
+	@if command -v air > /dev/null; then \
+		air; \
+	else \
+		echo "air not installed. Install with: go install github.com/air-verse/air@latest"; \
+		go run main.go; \
+	fi
+
+test: ## 运行测试
+	@echo "Running tests..."
+	@go test -v -race -coverprofile=coverage.out ./...
+	@echo "Tests complete"
+
+test-coverage: test ## 运行测试并显示覆盖率
+	@go tool cover -html=coverage.out
+
+clean: ## 清理构建文件
+	@echo "Cleaning..."
+	@rm -rf bin/
+	@rm -f coverage.out
+	@echo "Clean complete"
+
+docker-up: ## 启动 Docker 容器
+	@echo "Starting Docker containers..."
+	@docker-compose up -d
+	@echo "Docker containers started"
+
+docker-down: ## 停止 Docker 容器
+	@echo "Stopping Docker containers..."
+	@docker-compose down
+	@echo "Docker containers stopped"
+
+docker-logs: ## 查看 Docker 日志
+	@docker-compose logs -f
+
+migrate-create: ## 创建新的迁移文件 (usage: make migrate-create name=create_users_table)
+	@if [ -z "$(name)" ]; then \
+		echo "Error: name is required. Usage: make migrate-create name=create_users_table"; \
+		exit 1; \
+	fi
+	@mkdir -p migrations
+	@timestamp=$$(date +%Y%m%d%H%M%S); \
+	touch migrations/$${timestamp}_$(name).up.sql; \
+	touch migrations/$${timestamp}_$(name).down.sql; \
+	echo "Created migrations/$${timestamp}_$(name).up.sql"; \
+	echo "Created migrations/$${timestamp}_$(name).down.sql"
+
+migrate-up: ## 执行数据库迁移
+	@echo "Running migrations..."
+	@if command -v migrate > /dev/null; then \
+		migrate -path migrations -database "$${DATABASE_URL}" up; \
+	else \
+		echo "migrate not installed. Install with: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"; \
+	fi
+
+migrate-down: ## 回滚最后一次迁移
+	@echo "Rolling back migration..."
+	@if command -v migrate > /dev/null; then \
+		migrate -path migrations -database "$${DATABASE_URL}" down 1; \
+	else \
+		echo "migrate not installed. Install with: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"; \
+	fi
+
+migrate-status: ## 查看迁移状态
+	@if command -v migrate > /dev/null; then \
+		migrate -path migrations -database "$${DATABASE_URL}" version; \
+	else \
+		echo "migrate not installed. Install with: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"; \
+	fi
+
+seed: ## 填充测试数据
+	@echo "Seeding database..."
+	@if [ -f scripts/seed.go ]; then \
+		go run scripts/seed.go; \
+	else \
+		echo "No seed script found at scripts/seed.go"; \
+	fi
+
+lint: ## 运行代码检查
+	@echo "Running linter..."
+	@if command -v golangci-lint > /dev/null; then \
+		golangci-lint run ./...; \
+	else \
+		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
+
+fmt: ## 格式化代码
+	@echo "Formatting code..."
+	@go fmt ./...
+	@echo "Format complete"
+
+tidy: ## 整理依赖
+	@echo "Tidying dependencies..."
+	@go mod tidy
+	@echo "Tidy complete"
+
+install: ## 安装依赖
+	@echo "Installing dependencies..."
+	@go mod download
+	@echo "Dependencies installed"
+
+all: clean lint test build ## 执行完整的构建流程

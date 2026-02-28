@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -18,37 +18,37 @@ type Config struct {
 	User     string
 	Password string
 	DBName   string
-	Charset  string
+	SSLMode  string
 	MaxIdle  int
 	MaxOpen  int
 	LogLevel logger.LogLevel
 }
 
-// Init 初始化数据库连接
-func Init(cfg *Config) error {
-	if cfg.Charset == "" {
-		cfg.Charset = "utf8mb4"
+// Connect 连接数据库
+func Connect(cfg *Config) (*gorm.DB, error) {
+	if cfg.SSLMode == "" {
+		cfg.SSLMode = "disable"
 	}
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=True&loc=Local",
-		cfg.User,
-		cfg.Password,
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 		cfg.Host,
 		cfg.Port,
+		cfg.User,
+		cfg.Password,
 		cfg.DBName,
-		cfg.Charset,
+		cfg.SSLMode,
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(cfg.LogLevel),
 	})
 	if err != nil {
-		return fmt.Errorf("连接数据库失败: %w", err)
+		return nil, fmt.Errorf("连接数据库失败: %w", err)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("获取数据库实例失败: %w", err)
+		return nil, fmt.Errorf("获取数据库实例失败: %w", err)
 	}
 
 	// 设置连接池
@@ -67,7 +67,7 @@ func Init(cfg *Config) error {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	DB = db
-	return nil
+	return db, nil
 }
 
 // Close 关闭数据库连接
@@ -85,4 +85,16 @@ func Close() error {
 // GetDB 获取数据库实例
 func GetDB() *gorm.DB {
 	return DB
+}
+
+// Ping 检查数据库连接
+func Ping() error {
+	if DB == nil {
+		return fmt.Errorf("数据库未初始化")
+	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Ping()
 }

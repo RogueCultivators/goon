@@ -44,7 +44,7 @@ func TestInitProject(t *testing.T) {
 			defer os.Chdir(oldWd)
 			os.Chdir(tmpDir)
 
-			err := InitProject(tt.projectName, tt.moduleName, tt.minimal)
+			err := InitProject(tt.projectName, tt.moduleName, tt.minimal, false)
 
 			if tt.wantErr {
 				if err == nil {
@@ -118,7 +118,7 @@ func TestInitProject(t *testing.T) {
 
 				for _, dir := range fullDirs {
 					dirPath := filepath.Join(tt.projectName, dir)
-					if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+					if _, statErr := os.Stat(dirPath); os.IsNotExist(statErr) {
 						t.Errorf("Full mode directory %s was not created", dirPath)
 					}
 				}
@@ -132,7 +132,7 @@ func TestInitProject(t *testing.T) {
 
 				for _, file := range fullFiles {
 					filePath := filepath.Join(tt.projectName, file)
-					if _, err := os.Stat(filePath); os.IsNotExist(err) {
+					if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
 						t.Errorf("Full mode file %s was not created", filePath)
 					}
 				}
@@ -151,7 +151,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 	moduleName := "github.com/user/testapp"
 
 	// First call
-	err := InitProject(projectName, moduleName, true)
+	err := InitProject(projectName, moduleName, true, false)
 	if err != nil {
 		t.Fatalf("First InitProject() call failed: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 	}
 
 	// Second call (should be idempotent)
-	err = InitProject(projectName, moduleName, true)
+	err = InitProject(projectName, moduleName, true, false)
 	if err != nil {
 		t.Fatalf("Second InitProject() call failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 
 func TestInitProjectInvalidPath(t *testing.T) {
 	// Try to create project in a path that would fail
-	err := InitProject("/invalid/path/that/does/not/exist/project", "test", true)
+	err := InitProject("/invalid/path/that/does/not/exist/project", "test", true, false)
 	if err == nil {
 		t.Errorf("InitProject() should fail with invalid path")
 	}

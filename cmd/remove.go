@@ -15,7 +15,11 @@ var removeCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		moduleName := args[0]
-		force, _ := cmd.Flags().GetBool("force")
+		force, err := cmd.Flags().GetBool("force")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
 
 		// 检查是否在项目根目录
 		if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
@@ -37,7 +41,7 @@ var removeCmd = &cobra.Command{
 			fmt.Print("确认删除? (y/N): ")
 
 			var response string
-			fmt.Scanln(&response)
+			_, _ = fmt.Scanln(&response)
 
 			if response != "y" && response != "Y" {
 				fmt.Println("已取消删除")

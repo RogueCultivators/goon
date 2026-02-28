@@ -22,8 +22,16 @@ var renameCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		oldName := args[0]
 		newName := args[1]
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		noColor, _ := cmd.Flags().GetBool("no-color")
+		dryRun, err := cmd.Flags().GetBool("dry-run")
+		if err != nil {
+			ui.Error(fmt.Sprintf("获取参数失败: %v", err))
+			return
+		}
+		noColor, err := cmd.Flags().GetBool("no-color")
+		if err != nil {
+			ui.Error(fmt.Sprintf("获取参数失败: %v", err))
+			return
+		}
 
 		ui.NoColor = noColor
 

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# {{.ProjectName}} 项目初始化脚本
+
+set -e
+
+echo "🚀 开始初始化 {{.ProjectName}} 项目..."
+
+# 检查必要的工具
+echo "📋 检查必要的工具..."
+
+command -v go >/dev/null 2>&1 || { echo "❌ 错误: 需要安装 Go"; exit 1; }
+command -v docker >/dev/null 2>&1 || { echo "❌ 错误: 需要安装 Docker"; exit 1; }
+command -v docker-compose >/dev/null 2>&1 || { echo "❌ 错误: 需要安装 Docker Compose"; exit 1; }
+
+echo "✅ 所有必要工具已安装"
+
+# 安装 Go 依赖
+echo "📦 安装 Go 依赖..."
+go mod download
+echo "✅ Go 依赖安装完成"
+
+# 启动数据库
+echo "🐘 启动数据库服务..."
+docker-compose up -d
+echo "✅ 数据库服务已启动"
+
+# 等待数据库就绪
+echo "⏳ 等待数据库就绪..."
+sleep 5
+
+# 运行数据库迁移
+if [ -d "migrations" ] && [ "$(ls -A migrations)" ]; then
+    echo "🔄 运行数据库迁移..."
+    if command -v migrate >/dev/null 2>&1; then
+        make migrate-up
+        echo "✅ 数据库迁移完成"
+    else
+        echo "⚠️  警告: migrate 工具未安装，跳过迁移"
+        echo "   安装方法: https://github.com/golang-migrate/migrate"
+    fi
+else
+    echo "ℹ️  未找到迁移文件，跳过迁移"
+fi
+
+# 创建必要的目录
+echo "📁 创建必要的目录..."
+mkdir -p logs
+echo "✅ 目录创建完成"
+
+echo ""
+echo "🎉 项目初始化完成！"
+echo ""
+echo "下一步:"
+echo "  1. 复制环境变量配置: cp .env.example .env"
+echo "  2. 编辑 .env 文件配置数据库连接"
+echo "  3. 启动服务: go run main.go"
+echo "  4. 访问: http://localhost:8080"
+echo ""

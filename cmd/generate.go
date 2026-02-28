@@ -26,9 +26,21 @@ var generateTestCmd = &cobra.Command{
   goon generate test order --all       # 为所有模块生成测试文件`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		all, _ := cmd.Flags().GetBool("all")
-		layers, _ := cmd.Flags().GetStringSlice("layers")
-		noColor, _ := cmd.Flags().GetBool("no-color")
+		all, err := cmd.Flags().GetBool("all")
+		if err != nil {
+			ui.Error(fmt.Sprintf("获取参数失败: %v", err))
+			return
+		}
+		layers, err := cmd.Flags().GetStringSlice("layers")
+		if err != nil {
+			ui.Error(fmt.Sprintf("获取参数失败: %v", err))
+			return
+		}
+		noColor, err := cmd.Flags().GetBool("no-color")
+		if err != nil {
+			ui.Error(fmt.Sprintf("获取参数失败: %v", err))
+			return
+		}
 
 		ui.NoColor = noColor
 

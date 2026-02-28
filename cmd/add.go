@@ -18,6 +18,7 @@ var addCmd = &cobra.Command{
   goon add product -l handler,service     # 只生成指定的层
   goon add order --layers handler         # 只生成 handler 层
   goon add post --no-register             # 不自动注册路由
+  goon add user --example                 # 生成包含完整实现的示例代码
 
 可用的层:
   - handler: HTTP 处理器
@@ -29,21 +30,56 @@ var addCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		moduleName := args[0]
-		layers, _ := cmd.Flags().GetStringSlice("layers")
-		register, _ := cmd.Flags().GetBool("register")
-		verbose, _ := cmd.Flags().GetBool("verbose")
+		layers, err := cmd.Flags().GetStringSlice("layers")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
+		register, err := cmd.Flags().GetBool("register")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
+		verbose, err := cmd.Flags().GetBool("verbose")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
+		example, err := cmd.Flags().GetBool("example")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
+		dryRun, err := cmd.Flags().GetBool("dry-run")
+		if err != nil {
+			fmt.Printf("获取参数失败: %v\n", err)
+			return
+		}
+
+		if dryRun {
+			fmt.Println("🔍 预览模式 (--dry-run)")
+			fmt.Println("以下文件将会被生成:")
+		}
 
 		if verbose {
 			fmt.Printf("正在添加模块: %s\n", moduleName)
 			if len(layers) > 0 {
 				fmt.Printf("指定的层: %v\n", layers)
 			}
-		} else {
+			if example {
+				fmt.Println("使用示例模板（包含完整实现）")
+			}
+		} else if !dryRun {
 			fmt.Printf("正在添加模块: %s\n", moduleName)
 		}
 
-		if err := generator.AddModule(moduleName, layers); err != nil {
+		if err := generator.AddModule(moduleName, layers, example, dryRun); err != nil {
 			fmt.Printf("添加模块失败: %v\n", err)
+			return
+		}
+
+		if dryRun {
+			fmt.Println("\n💡 提示: 移除 --dry-run 标志以实际生成这些文件")
 			return
 		}
 
@@ -78,4 +114,6 @@ func init() {
 	addCmd.Flags().StringSliceP("layers", "l", []string{}, "指定要生成的层 (handler,service,model,repository,schema,routes)")
 	addCmd.Flags().Bool("register", true, "自动在 router.go 中注册路由")
 	addCmd.Flags().BoolP("verbose", "v", false, "显示详细日志")
+	addCmd.Flags().Bool("example", false, "生成包含完整实现的示例代码")
+	addCmd.Flags().Bool("dry-run", false, "预览将要生成的文件，不实际创建")
 }
