@@ -1,0 +1,55 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  auto-release:
+    name: Auto Release on Master Push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Get latest tag
+      id: get_tag
+      run: |
+        # 获取最新的 tag，如果没有则使用 v0.0.0
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+        # 解析版本号并递增 patch 版本
+        VERSION=${LATEST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+        PATCH=$((PATCH + 1))
+        NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "Latest tag: $LATEST_TAG"
+        echo "New tag: $NEW_TAG"
+
+    - name: Create and push tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a ${{ steps.get_tag.outputs.new_tag }} -m "Auto release ${{ steps.get_tag.outputs.new_tag }}"
+        git push origin ${{ steps.get_tag.outputs.new_tag }}
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
