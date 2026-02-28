@@ -28,7 +28,7 @@
 ### 从源码构建
 
 ```bash
-git clone https://github.com/yourusername/goon.git
+git clone https://github.com/RogueCultivators/goon.git
 cd goon
 go build -o goon main.go
 ```
@@ -36,7 +36,7 @@ go build -o goon main.go
 ### 使用 go install
 
 ```bash
-go install github.com/yourusername/goon@latest
+go install github.com/RogueCultivators/goon@latest
 ```
 
 ## 快速开始
@@ -862,7 +862,7 @@ A: 修改 `cmd/server/server.go`，使用 `router.RunTLS()` 替代 `router.Run()
 
 ## 问题反馈
 
-如果您发现任何问题或有功能建议，请在 [Issues](https://github.com/yourusername/goon/issues) 页面提交。
+如果您发现任何问题或有功能建议，请在 [Issues](https://github.com/RogueCultivators/goon/issues) 页面提交。
 
 ## 许可证
 
