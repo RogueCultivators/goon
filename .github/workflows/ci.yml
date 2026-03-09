@@ -77,8 +77,13 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Build binary
+    - name: Build binary (Unix)
+      if: runner.os != 'Windows'
       run: go build -o goon ./
+
+    - name: Build binary (Windows)
+      if: runner.os == 'Windows'
+      run: go build -o goon.exe ./
 
     - name: Test binary (Unix)
       if: runner.os != 'Windows'
@@ -100,6 +105,6 @@ jobs:
         go-version: '1.25'
 
     - name: Run Gosec Security Scanner
-      run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-        gosec ./...
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: './...'
