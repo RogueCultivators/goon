@@ -51,7 +51,7 @@ func TestInitProject(t *testing.T) {
 			defer os.Chdir(oldWd)
 			os.Chdir(tmpDir)
 
-			err := InitProject(tt.opts)
+			err := InitProject(&tt.opts)
 
 			if tt.wantErr {
 				if err == nil {
@@ -161,7 +161,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 	}
 
 	// First call
-	err := InitProject(opts)
+	err := InitProject(&opts)
 	if err != nil {
 		t.Fatalf("First InitProject() call failed: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 	}
 
 	// Second call (should be idempotent)
-	err = InitProject(opts)
+	err = InitProject(&opts)
 	if err != nil {
 		t.Fatalf("Second InitProject() call failed: %v", err)
 	}
@@ -192,11 +192,12 @@ func TestInitProjectIdempotency(t *testing.T) {
 
 func TestInitProjectInvalidPath(t *testing.T) {
 	// Try to create project in a path that would fail
-	err := InitProject(InitOptions{
+	opts := InitOptions{
 		ProjectName: "/invalid/path/that/does/not/exist/project",
 		ModuleName:  "test",
 		Minimal:     true,
-	})
+	}
+	err := InitProject(&opts)
 	if err == nil {
 		t.Errorf("InitProject() should fail with invalid path")
 	}

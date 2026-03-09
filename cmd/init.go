@@ -96,7 +96,7 @@ var initCmd = &cobra.Command{
 		}
 
 		// 执行项目初始化
-		if err := generator.InitProject(opts); err != nil {
+		if err := generator.InitProject(&opts); err != nil {
 			ui.Error(fmt.Sprintf("初始化失败: %v", err))
 			return
 		}
