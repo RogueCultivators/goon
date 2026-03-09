@@ -4,11 +4,6 @@
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
-    - vendor
-    - testdata
-  skip-files:
-    - ".*\\.pb\\.go$"
 
 linters:
   enable:
@@ -36,7 +31,8 @@ linters-settings:
     check-blank: true
 
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
 
   gocyclo:
     min-complexity: 15
@@ -70,6 +66,11 @@ linters-settings:
       - G304  # 文件路径来自变量
 
 issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+  exclude-files:
+    - ".*\\.pb\\.go$"
   exclude-rules:
     # 排除测试文件的某些检查
     - path: _test\.go
@@ -88,6 +89,7 @@ issues:
   max-same-issues: 0
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
