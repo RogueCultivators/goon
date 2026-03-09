@@ -8,32 +8,39 @@ import (
 
 func TestInitProject(t *testing.T) {
 	tests := []struct {
-		name        string
-		projectName string
-		moduleName  string
-		minimal     bool
-		wantErr     bool
+		name    string
+		opts    InitOptions
+		wantErr bool
 	}{
 		{
-			name:        "minimal project",
-			projectName: "testapp",
-			moduleName:  "github.com/user/testapp",
-			minimal:     true,
-			wantErr:     false,
+			name: "minimal project",
+			opts: InitOptions{
+				ProjectName: "testapp",
+				ModuleName:  "github.com/user/testapp",
+				Minimal:     true,
+			},
+			wantErr: false,
 		},
 		{
-			name:        "full project",
-			projectName: "fullapp",
-			moduleName:  "github.com/user/fullapp",
-			minimal:     false,
-			wantErr:     false,
+			name: "full project",
+			opts: InitOptions{
+				ProjectName: "fullapp",
+				ModuleName:  "github.com/user/fullapp",
+				Database:    "PostgreSQL",
+				UseAuth:     true,
+				AuthMethod:  "JWT",
+				UseDocker:   true,
+			},
+			wantErr: false,
 		},
 		{
-			name:        "simple module name",
-			projectName: "simpleapp",
-			moduleName:  "simpleapp",
-			minimal:     true,
-			wantErr:     false,
+			name: "simple module name",
+			opts: InitOptions{
+				ProjectName: "simpleapp",
+				ModuleName:  "simpleapp",
+				Minimal:     true,
+			},
+			wantErr: false,
 		},
 	}
 
@@ -44,7 +51,7 @@ func TestInitProject(t *testing.T) {
 			defer os.Chdir(oldWd)
 			os.Chdir(tmpDir)
 
-			err := InitProject(tt.projectName, tt.moduleName, tt.minimal, false)
+			err := InitProject(tt.opts)
 
 			if tt.wantErr {
 				if err == nil {
@@ -59,8 +66,8 @@ func TestInitProject(t *testing.T) {
 			}
 
 			// Verify project directory was created
-			if _, statErr := os.Stat(tt.projectName); os.IsNotExist(statErr) {
-				t.Errorf("Project directory %s was not created", tt.projectName)
+			if _, statErr := os.Stat(tt.opts.ProjectName); os.IsNotExist(statErr) {
+				t.Errorf("Project directory %s was not created", tt.opts.ProjectName)
 			}
 
 			// Verify core directories exist
@@ -75,7 +82,7 @@ func TestInitProject(t *testing.T) {
 			}
 
 			for _, dir := range coreDirs {
-				dirPath := filepath.Join(tt.projectName, dir)
+				dirPath := filepath.Join(tt.opts.ProjectName, dir)
 				if _, statErr := os.Stat(dirPath); os.IsNotExist(statErr) {
 					t.Errorf("Core directory %s was not created", dirPath)
 				}
@@ -91,49 +98,46 @@ func TestInitProject(t *testing.T) {
 			}
 
 			for _, file := range coreFiles {
-				filePath := filepath.Join(tt.projectName, file)
+				filePath := filepath.Join(tt.opts.ProjectName, file)
 				if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
 					t.Errorf("Core file %s was not created", filePath)
 				}
 			}
 
 			// Verify go.mod contains correct module name
-			goModPath := filepath.Join(tt.projectName, "go.mod")
+			goModPath := filepath.Join(tt.opts.ProjectName, "go.mod")
 			content, err := os.ReadFile(goModPath)
 			if err != nil {
 				t.Errorf("Failed to read go.mod: %v", err)
 			}
-			if !containsSubstring(string(content), tt.moduleName) {
-				t.Errorf("go.mod does not contain module name %s", tt.moduleName)
+			if !containsSubstring(string(content), tt.opts.ModuleName) {
+				t.Errorf("go.mod does not contain module name %s", tt.opts.ModuleName)
 			}
 
-			// If not minimal, verify additional directories
-			if !tt.minimal {
-				fullDirs := []string{
-					"internal/sqlc/queries",
-					"internal/sqlc/schema",
-					"pkg/validator",
-					"pkg/database",
-				}
-
-				for _, dir := range fullDirs {
-					dirPath := filepath.Join(tt.projectName, dir)
-					if _, statErr := os.Stat(dirPath); os.IsNotExist(statErr) {
-						t.Errorf("Full mode directory %s was not created", dirPath)
+			// If not minimal, verify additional directories based on options
+			if !tt.opts.Minimal {
+				if tt.opts.Database != "\u65e0\u6570\u636e\u5e93" && tt.opts.Database != "" {
+					for _, dir := range []string{"internal/sqlc/queries", "internal/sqlc/schema", "pkg/database"} {
+						dirPath := filepath.Join(tt.opts.ProjectName, dir)
+						if _, statErr := os.Stat(dirPath); os.IsNotExist(statErr) {
+							t.Errorf("Database directory %s was not created", dirPath)
+						}
 					}
 				}
 
-				// Verify additional files
-				fullFiles := []string{
-					"Dockerfile",
-					"docker-compose.yaml",
-					"sqlc.yaml",
+				if tt.opts.UseDocker {
+					for _, file := range []string{"Dockerfile", "docker-compose.yaml"} {
+						filePath := filepath.Join(tt.opts.ProjectName, file)
+						if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
+							t.Errorf("Docker file %s was not created", filePath)
+						}
+					}
 				}
 
-				for _, file := range fullFiles {
-					filePath := filepath.Join(tt.projectName, file)
-					if _, statErr := os.Stat(filePath); os.IsNotExist(statErr) {
-						t.Errorf("Full mode file %s was not created", filePath)
+				if tt.opts.UseAuth && (tt.opts.AuthMethod == "JWT" || tt.opts.AuthMethod == "") {
+					jwtPath := filepath.Join(tt.opts.ProjectName, "pkg/jwt/jwt.go")
+					if _, statErr := os.Stat(jwtPath); os.IsNotExist(statErr) {
+						t.Errorf("JWT file was not created")
 					}
 				}
 			}
@@ -150,8 +154,14 @@ func TestInitProjectIdempotency(t *testing.T) {
 	projectName := "testapp"
 	moduleName := "github.com/user/testapp"
 
+	opts := InitOptions{
+		ProjectName: projectName,
+		ModuleName:  moduleName,
+		Minimal:     true,
+	}
+
 	// First call
-	err := InitProject(projectName, moduleName, true, false)
+	err := InitProject(opts)
 	if err != nil {
 		t.Fatalf("First InitProject() call failed: %v", err)
 	}
@@ -164,7 +174,7 @@ func TestInitProjectIdempotency(t *testing.T) {
 	}
 
 	// Second call (should be idempotent)
-	err = InitProject(projectName, moduleName, true, false)
+	err = InitProject(opts)
 	if err != nil {
 		t.Fatalf("Second InitProject() call failed: %v", err)
 	}
@@ -182,7 +192,11 @@ func TestInitProjectIdempotency(t *testing.T) {
 
 func TestInitProjectInvalidPath(t *testing.T) {
 	// Try to create project in a path that would fail
-	err := InitProject("/invalid/path/that/does/not/exist/project", "test", true, false)
+	err := InitProject(InitOptions{
+		ProjectName: "/invalid/path/that/does/not/exist/project",
+		ModuleName:  "test",
+		Minimal:     true,
+	})
 	if err == nil {
 		t.Errorf("InitProject() should fail with invalid path")
 	}

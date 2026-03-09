@@ -10,23 +10,27 @@ import (
 )
 
 func AddModule(moduleName string, layers []string, example, dryRun bool) error {
+	moduleName = utils.SanitizeInput(moduleName)
+	if moduleName == "" {
+		return fmt.Errorf("模块名称不能为空")
+	}
+
 	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		return fmt.Errorf("当前目录不是一个 Go 项目，请先运行 'goon init' 初始化项目")
 	}
 
-	projectModule, err := getModuleNameFromGoMod()
+	gen, err := NewGenerator()
 	if err != nil {
 		return err
-	}
-
-	renderer, err := template.NewRenderer()
-	if err != nil {
-		return fmt.Errorf("初始化模板渲染器失败: %w", err)
 	}
 
 	moduleName = utils.ToSnakeCase(moduleName)
 	capitalizedName := utils.ToPascalCase(moduleName)
 	moduleDir := filepath.Join("internal", moduleName)
+
+	if err := utils.ValidatePath(".", moduleDir); err != nil {
+		return fmt.Errorf("不安全的模块路径: %w", err)
+	}
 
 	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
 		return err
@@ -35,12 +39,12 @@ func AddModule(moduleName string, layers []string, example, dryRun bool) error {
 	data := template.ModuleData{
 		ModuleName:      moduleName,
 		CapitalizedName: capitalizedName,
-		ProjectModule:   projectModule,
+		ProjectModule:   gen.GetProjectModule(),
 	}
 
 	allFiles := getModuleTemplates(example)
 	if len(layers) == 0 {
-		layers = []string{"handler", "service", "model", "repository", "schema", "routes"}
+		layers = gen.GetConfig().Defaults.Layers
 	}
 
 	if err := validateLayers(layers, allFiles); err != nil {
@@ -48,7 +52,7 @@ func AddModule(moduleName string, layers []string, example, dryRun bool) error {
 	}
 
 	files := buildFileList(moduleDir, layers, allFiles)
-	return renderModuleFiles(files, renderer, data, dryRun)
+	return renderModuleFiles(files, gen.GetRenderer(), data, dryRun)
 }
 
 func getModuleTemplates(example bool) map[string]string {

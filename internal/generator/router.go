@@ -126,3 +126,84 @@ func addRouteToAPIGroup(content, routeCode string) string {
 
 	return before + routeCode + "\t" + after
 }
+
+// UnregisterModuleRoute 自动从 router.go 中移除模块路由
+func UnregisterModuleRoute(moduleName string) error {
+	routerPath := filepath.Join("internal", "router", "router.go")
+
+	// 检查 router.go 是否存在
+	if _, err := os.Stat(routerPath); os.IsNotExist(err) {
+		return fmt.Errorf("router.go 不存在，请确保在项目根目录运行此命令")
+	}
+
+	// 读取文件内容
+	content, err := os.ReadFile(routerPath)
+	if err != nil {
+		return fmt.Errorf("读取 router.go 失败: %w", err)
+	}
+
+	fileContent := string(content)
+
+	// 标准化模块名称
+	moduleName = utils.ToSnakeCase(moduleName)
+
+	// 获取项目模块名
+	projectModule, err := getModuleNameFromGoMod()
+	if err != nil {
+		return err
+	}
+
+	// 构建 import 语句
+	importLine := fmt.Sprintf("\t\"%s/internal/%s\"", projectModule, moduleName)
+
+	// 检查是否存在该导入
+	if !strings.Contains(fileContent, importLine) {
+		return fmt.Errorf("模块 %s 的路由未注册", moduleName)
+	}
+
+	// 移除 import 语句
+	fileContent = removeImport(fileContent, importLine)
+
+	// 构建路由注册代码
+	routeCode := fmt.Sprintf("\t\t%s.RegisterRoutes(api)", moduleName)
+
+	// 移除路由注册代码
+	fileContent = removeRouteRegistration(fileContent, routeCode)
+
+	// 写回文件
+	if err := os.WriteFile(routerPath, []byte(fileContent), 0o600); err != nil {
+		return fmt.Errorf("写入 router.go 失败: %w", err)
+	}
+
+	return nil
+}
+
+// removeImport 从 import 块中移除指定的导入
+func removeImport(content, importLine string) string {
+	// 移除导入行及其换行符
+	lines := strings.Split(content, "\n")
+	var result []string
+
+	for _, line := range lines {
+		if strings.TrimSpace(line) != strings.TrimSpace(importLine) {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}
+
+// removeRouteRegistration 移除路由注册代码
+func removeRouteRegistration(content, routeCode string) string {
+	// 移除路由注册行及其换行符
+	lines := strings.Split(content, "\n")
+	var result []string
+
+	for _, line := range lines {
+		if strings.TrimSpace(line) != strings.TrimSpace(routeCode) {
+			result = append(result, line)
+		}
+	}
+
+	return strings.Join(result, "\n")
+}

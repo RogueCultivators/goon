@@ -52,19 +52,15 @@ func AddPackage(pkgName string) error {
 		return fmt.Errorf("未知的功能包: %s\n可用的包: validator, database, jwt, utils, cache, email, upload, pagination, testutil", pkgName)
 	}
 
-	// 获取项目模块名
-	projectModule, err := getModuleNameFromGoMod()
+	gen, err := NewGenerator()
 	if err != nil {
 		return err
 	}
 
-	renderer, err := template.NewRenderer()
-	if err != nil {
-		return fmt.Errorf("初始化模板渲染器失败: %w", err)
-	}
-
+	// 创建模板数据
 	data := template.ProjectData{
-		ModuleName: projectModule,
+		ProjectName: "pkg", // 功能包使用固定名称
+		ModuleName:  gen.GetProjectModule(),
 	}
 
 	// 生成文件
@@ -81,7 +77,7 @@ func AddPackage(pkgName string) error {
 			return fmt.Errorf("创建目录失败: %w", err)
 		}
 
-		content, err := renderer.Render(tmplName, data)
+		content, err := gen.GetRenderer().Render(tmplName, data)
 		if err != nil {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}

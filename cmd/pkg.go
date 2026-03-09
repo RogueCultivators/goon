@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/RogueCultivators/goon/internal/generator"
+	"github.com/RogueCultivators/goon/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -16,14 +17,14 @@ var addPkgCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		pkgName := args[0]
 
-		fmt.Printf("正在添加功能包: %s\n", pkgName)
+		ui.Step(fmt.Sprintf("正在添加功能包: %s", pkgName))
 
 		if err := generator.AddPackage(pkgName); err != nil {
-			fmt.Printf("添加功能包失败: %v\n", err)
+			ui.Error(fmt.Sprintf("添加功能包失败: %v", err))
 			return
 		}
 
-		fmt.Println("\n✓ 功能包添加成功!")
+		ui.Success("功能包添加成功!")
 	},
 }
 
@@ -34,14 +35,12 @@ var listPkgCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		pkgs := generator.ListAvailablePackages()
 
-		fmt.Println("可用的功能包:")
-		fmt.Println()
+		ui.Header("可用的功能包")
 		for _, pkg := range pkgs {
-			fmt.Printf("  - %s\n", pkg)
+			ui.Info(fmt.Sprintf("  - %s", pkg))
 		}
-		fmt.Println()
-		fmt.Println("使用方法: goon add pkg <包名称>")
-		fmt.Println("示例: goon add pkg cache")
+		ui.Info("使用方法: goon add pkg <包名称>")
+		ui.Info("示例: goon add pkg cache")
 	},
 }
 

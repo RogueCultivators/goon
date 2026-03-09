@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // FileBackup 文件备份结构
@@ -116,21 +117,8 @@ func SanitizeInput(input string) string {
 	result := input
 
 	for _, char := range dangerous {
-		result = replaceAll(result, char, "")
+		result = strings.ReplaceAll(result, char, "")
 	}
 
-	return result
-}
-
-func replaceAll(s, old, replacement string) string {
-	result := ""
-	for i := 0; i < len(s); i++ {
-		if i <= len(s)-len(old) && s[i:i+len(old)] == old {
-			result += replacement
-			i += len(old) - 1
-		} else {
-			result += string(s[i])
-		}
-	}
 	return result
 }

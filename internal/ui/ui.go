@@ -102,6 +102,11 @@ func (pb *ProgressBar) Render() {
 		return
 	}
 
+	if pb.total <= 0 {
+		fmt.Fprintf(Output, "\r%s: %d/?", pb.prefix, pb.current)
+		return
+	}
+
 	percent := float64(pb.current) / float64(pb.total)
 	filled := int(percent * float64(pb.width))
 

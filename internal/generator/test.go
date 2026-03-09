@@ -12,6 +12,10 @@ import (
 
 // GenerateModuleTests 为模块生成测试文件
 func GenerateModuleTests(moduleName string, layers []string) error {
+	moduleName = utils.SanitizeInput(moduleName)
+	if moduleName == "" {
+		return fmt.Errorf("模块名称不能为空")
+	}
 	moduleName = utils.ToSnakeCase(moduleName)
 	moduleDir := filepath.Join("internal", moduleName)
 
@@ -20,15 +24,9 @@ func GenerateModuleTests(moduleName string, layers []string) error {
 		return fmt.Errorf("模块 %s 不存在", moduleName)
 	}
 
-	// 获取项目模块名
-	projectModule, err := getModuleNameFromGoMod()
+	gen, err := NewGenerator()
 	if err != nil {
 		return err
-	}
-
-	renderer, err := template.NewRenderer()
-	if err != nil {
-		return fmt.Errorf("初始化模板渲染器失败: %w", err)
 	}
 
 	capitalizedName := utils.ToPascalCase(moduleName)
@@ -36,7 +34,7 @@ func GenerateModuleTests(moduleName string, layers []string) error {
 	data := template.ModuleData{
 		ModuleName:      moduleName,
 		CapitalizedName: capitalizedName,
-		ProjectModule:   projectModule,
+		ProjectModule:   gen.GetProjectModule(),
 	}
 
 	// 如果没有指定 layers，为所有存在的文件生成测试
@@ -76,7 +74,7 @@ func GenerateModuleTests(moduleName string, layers []string) error {
 			continue
 		}
 
-		content, err := renderer.Render(tmplName, data)
+		content, err := gen.GetRenderer().Render(tmplName, data)
 		if err != nil {
 			return fmt.Errorf("渲染模板 %s 失败: %w", tmplName, err)
 		}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/RogueCultivators/goon/internal/ui"
@@ -12,11 +13,21 @@ import (
 
 // RenameModule 重命名模块
 func RenameModule(oldName, newName string, dryRun bool) error {
+	oldName = utils.SanitizeInput(oldName)
+	newName = utils.SanitizeInput(newName)
+	if oldName == "" || newName == "" {
+		return fmt.Errorf("模块名称不能为空")
+	}
+
 	oldName = utils.ToSnakeCase(oldName)
 	newName = utils.ToSnakeCase(newName)
 
 	oldDir := filepath.Join("internal", oldName)
 	newDir := filepath.Join("internal", newName)
+
+	if err := utils.ValidatePath(".", newDir); err != nil {
+		return fmt.Errorf("不安全的模块路径: %w", err)
+	}
 
 	if err := validateRenameOperation(oldDir, newDir, oldName, newName); err != nil {
 		return err
@@ -114,9 +125,14 @@ func processModuleFile(file, oldName, newName, oldCapitalized, newCapitalized st
 	}
 
 	newContent := string(content)
+	// 1. 替换 package 声明（精确匹配）
 	newContent = strings.ReplaceAll(newContent, fmt.Sprintf("package %s", oldName), fmt.Sprintf("package %s", newName))
-	newContent = strings.ReplaceAll(newContent, oldCapitalized, newCapitalized)
-	newContent = strings.ReplaceAll(newContent, oldName, newName)
+	// 2. 使用单词边界替换 PascalCase 标识符
+	reCapitalized := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldCapitalized) + `\b`)
+	newContent = reCapitalized.ReplaceAllString(newContent, newCapitalized)
+	// 3. 使用单词边界替换 snake_case 标识符（避免替换子串）
+	reName := regexp.MustCompile(`\b` + regexp.QuoteMeta(oldName) + `\b`)
+	newContent = reName.ReplaceAllString(newContent, newName)
 
 	if err := os.WriteFile(file, []byte(newContent), 0o600); err != nil {
 		if rollbackErr := bm.Rollback(); rollbackErr != nil {
