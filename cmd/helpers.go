@@ -9,7 +9,7 @@ import (
 )
 
 // mustGetBool 获取 bool 类型的 flag，失败时 panic（cobra 注册过的 flag 不应失败）
-func mustGetBool(cmd *cobra.Command, name string) (bool, bool) {
+func mustGetBool(cmd *cobra.Command, name string) (value bool, ok bool) {
 	val, err := cmd.Flags().GetBool(name)
 	if err != nil {
 		ui.Error(fmt.Sprintf("获取参数 %s 失败: %v", name, err))

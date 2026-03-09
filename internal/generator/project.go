@@ -24,7 +24,7 @@ type InitOptions struct {
 	ExampleModule string // 示例模块名称，默认 "user"
 }
 
-func InitProject(opts InitOptions) error {
+func InitProject(opts *InitOptions) error {
 	opts.ProjectName = utils.SanitizeInput(opts.ProjectName)
 	if opts.ProjectName == "" {
 		return fmt.Errorf("项目名称不能为空")
@@ -74,7 +74,7 @@ func InitProject(opts InitOptions) error {
 	return nil
 }
 
-func createProjectDirectories(opts InitOptions) error {
+func createProjectDirectories(opts *InitOptions) error {
 	coreDirs := []string{
 		"cmd/server", "internal/config", "internal/middleware", "internal/router",
 		"pkg/response", "pkg/logger", "pkg/errors", "scripts", "docs",
@@ -104,7 +104,7 @@ func createProjectDirectories(opts InitOptions) error {
 	return nil
 }
 
-func renderProjectFiles(opts InitOptions, renderer *template.Renderer, data template.ProjectData) error {
+func renderProjectFiles(opts *InitOptions, renderer *template.Renderer, data template.ProjectData) error {
 	files := getCoreFiles(opts)
 	if !opts.Minimal {
 		for k, v := range getFullFiles(opts) {
@@ -135,7 +135,7 @@ func renderProjectFiles(opts InitOptions, renderer *template.Renderer, data temp
 	return nil
 }
 
-func getCoreFiles(opts InitOptions) map[string]string {
+func getCoreFiles(opts *InitOptions) map[string]string {
 	files := map[string]string{
 		"main.go": "main.go.tmpl", "cmd/server/server.go": "server.go.tmpl",
 		"internal/config/config.go": "config.go.tmpl", "internal/middleware/cors.go": "cors.go.tmpl",
@@ -156,7 +156,7 @@ func getCoreFiles(opts InitOptions) map[string]string {
 	return files
 }
 
-func getFullFiles(opts InitOptions) map[string]string {
+func getFullFiles(opts *InitOptions) map[string]string {
 	files := map[string]string{
 		"internal/middleware/requestid.go": "requestid.go.tmpl", "internal/middleware/ratelimit.go": "ratelimit.go.tmpl",
 		"internal/middleware/gzip.go": "gzip.go.tmpl", "pkg/validator/validator.go": "validator.go.tmpl",

@@ -135,7 +135,7 @@ func TestInitProject(t *testing.T) {
 				}
 
 				if tt.opts.UseAuth && (tt.opts.AuthMethod == "JWT" || tt.opts.AuthMethod == "") {
-					jwtPath := filepath.Join(tt.opts.ProjectName, "pkg/jwt/jwt.go")
+					jwtPath := filepath.Join(tt.opts.ProjectName, "pkg", "jwt", "jwt.go")
 					if _, statErr := os.Stat(jwtPath); os.IsNotExist(statErr) {
 						t.Errorf("JWT file was not created")
 					}

@@ -57,7 +57,7 @@ jobs:
         go-version: '1.25'
 
     - name: Run integration tests
-      run: go test -v ./tests/...
+      run: go test -v ./...
 
   build:
     name: Build
@@ -82,11 +82,11 @@ jobs:
 
     - name: Test binary (Unix)
       if: runner.os != 'Windows'
-      run: ./goon --version
+      run: ./goon version
 
     - name: Test binary (Windows)
       if: runner.os == 'Windows'
-      run: .\goon.exe --version
+      run: .\goon.exe version
 
   security:
     name: Security Scan
@@ -100,6 +100,6 @@ jobs:
         go-version: '1.25'
 
     - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
-      with:
-        args: './...'
+      run: |
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        gosec ./...

@@ -49,7 +49,7 @@ func (r *Renderer) Render(templateName string, data interface{}) (string, error)
 }
 
 // ListTemplates 从 embed.FS 动态读取模板文件列表，按类别分组返回
-func ListTemplates() (projectTemplates []string, moduleTemplates []string) {
+func ListTemplates() (projectTemplates, moduleTemplates []string) {
 	if entries, err := fs.ReadDir(templateFS, "templates/project"); err == nil {
 		for _, e := range entries {
 			if !e.IsDir() {
