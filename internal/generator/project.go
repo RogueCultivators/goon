@@ -22,6 +22,7 @@ type InitOptions struct {
 	AuthMethod    string // JWT, Session
 	UseDocker     bool
 	ExampleModule string // 示例模块名称，默认 "user"
+	UseSkills     bool   // 是否启用AI技能功能
 }
 
 func InitProject(opts *InitOptions) error {
@@ -94,6 +95,11 @@ func createProjectDirectories(opts *InitOptions) error {
 			}
 		}
 		dirs = append(dirs, "pkg/cache", "pkg/email", "pkg/upload")
+
+		// 添加AI技能相关目录
+		if opts.UseSkills {
+			dirs = append(dirs, "pkg/skills", "skills/templates", "skills/review_rules")
+		}
 	}
 
 	for _, dir := range dirs {
@@ -184,6 +190,16 @@ func getFullFiles(opts *InitOptions) map[string]string {
 	if opts.UseDocker {
 		files["Dockerfile"] = "Dockerfile.tmpl"
 		files["docker-compose.yaml"] = "docker-compose.yaml.tmpl"
+	}
+
+	// AI技能相关文件
+	if opts.UseSkills {
+		files["skills.yaml"] = "skills.yaml.tmpl"
+		files["pkg/skills/manager.go"] = "skills_manager.go.tmpl"
+		files["pkg/skills/config.go"] = "skills_config.go.tmpl"
+		files["pkg/skills/code_generation.go"] = "skills_code_generation.go.tmpl"
+		files["pkg/skills/code_review.go"] = "skills_code_review.go.tmpl"
+		files["pkg/skills/additional.go"] = "skills_additional.go.tmpl"
 	}
 
 	return files

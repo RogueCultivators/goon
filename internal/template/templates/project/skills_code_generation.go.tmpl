@@ -1,0 +1,163 @@
+package skills
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"{{.ModuleName}}/pkg/logger"
+)
+
+// CodeGenerationSkill 代码生成技能
+type CodeGenerationSkill struct {
+	config *Config
+	logger *logger.Logger
+}
+
+// NewCodeGenerationSkill 创建代码生成技能
+func NewCodeGenerationSkill(config *Config, logger *logger.Logger) *CodeGenerationSkill {
+	return &CodeGenerationSkill{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Name 返回技能名称
+func (s *CodeGenerationSkill) Name() string {
+	return "code_generation"
+}
+
+// Description 返回技能描述
+func (s *CodeGenerationSkill) Description() string {
+	return "AI驱动的代码生成技能，支持根据需求描述自动生成代码"
+}
+
+// Validate 验证输入参数
+func (s *CodeGenerationSkill) Validate(input *SkillInput) error {
+	if input.Type != "text" && input.Type != "code" {
+		return fmt.Errorf("代码生成技能只支持 text 或 code 类型输入")
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return fmt.Errorf("输入内容不能为空")
+	}
+	return nil
+}
+
+// Execute 执行代码生成
+func (s *CodeGenerationSkill) Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error) {
+	s.logger.Info("开始执行代码生成", "content_length", len(input.Content))
+
+	// 解析生成参数
+	language := s.getParameter(input, "language", "go")
+	framework := s.getParameter(input, "framework", "gin")
+	style := s.getParameter(input, "style", "clean")
+
+	// 构建AI提示词
+	prompt := s.buildPrompt(input.Content, language, framework, style)
+
+	// 调用AI服务生成代码
+	generatedCode, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI服务调用失败: %w", err)
+	}
+
+	// 后处理生成的代码
+	processedCode := s.postProcessCode(generatedCode, language)
+
+	return &SkillOutput{
+		Type:    "code",
+		Content: processedCode,
+		Metadata: map[string]interface{}{
+			"language":  language,
+			"framework": framework,
+			"style":     style,
+			"lines":     strings.Count(processedCode, "\n") + 1,
+		},
+		Success: true,
+	}, nil
+}
+
+// getParameter 获取参数值
+func (s *CodeGenerationSkill) getParameter(input *SkillInput, key, defaultValue string) string {
+	if value, exists := input.Parameters[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return defaultValue
+}
+
+// buildPrompt 构建AI提示词
+func (s *CodeGenerationSkill) buildPrompt(requirement, language, framework, style string) string {
+	return fmt.Sprintf(`请根据以下需求生成%s代码，使用%s框架，遵循%s代码风格：
+
+需求描述：
+%s
+
+要求：
+1. 代码应该是完整的、可运行的
+2. 包含必要的错误处理
+3. 添加适当的注释
+4. 遵循最佳实践
+5. 确保代码安全性
+
+请只返回代码，不要包含解释文字。`, language, framework, style, requirement)
+}
+
+// callAIService 调用AI服务
+func (s *CodeGenerationSkill) callAIService(ctx context.Context, prompt string) (string, error) {
+	// TODO: 实现实际的AI服务调用
+	// 这里应该根据配置调用相应的AI服务（OpenAI, Anthropic等）
+
+	// 模拟AI服务响应
+	s.logger.Info("调用AI服务生成代码", "prompt_length", len(prompt))
+
+	// 示例返回
+	return `package main
+
+import (
+	"fmt"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Handler 处理器结构体
+type Handler struct {
+	// TODO: 添加依赖
+}
+
+// NewHandler 创建新的处理器
+func NewHandler() *Handler {
+	return &Handler{}
+}
+
+// HandleRequest 处理请求
+func (h *Handler) HandleRequest(c *gin.Context) {
+	// TODO: 实现业务逻辑
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data":    nil,
+	})
+}`, nil
+}
+
+// postProcessCode 后处理生成的代码
+func (s *CodeGenerationSkill) postProcessCode(code, language string) string {
+	// 移除多余的空行
+	lines := strings.Split(code, "\n")
+	var processed []string
+
+	for i, line := range lines {
+		// 移除连续的空行
+		if strings.TrimSpace(line) == "" {
+			if i > 0 && strings.TrimSpace(lines[i-1]) != "" {
+				processed = append(processed, line)
+			}
+		} else {
+			processed = append(processed, line)
+		}
+	}
+
+	return strings.Join(processed, "\n")
+}

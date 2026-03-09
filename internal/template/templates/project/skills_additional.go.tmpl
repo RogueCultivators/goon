@@ -1,0 +1,350 @@
+package skills
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"{{.ModuleName}}/pkg/logger"
+)
+
+// DocumentationSkill 文档生成技能
+type DocumentationSkill struct {
+	config *Config
+	logger *logger.Logger
+}
+
+// NewDocumentationSkill 创建文档生成技能
+func NewDocumentationSkill(config *Config, logger *logger.Logger) *DocumentationSkill {
+	return &DocumentationSkill{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Name 返回技能名称
+func (s *DocumentationSkill) Name() string {
+	return "documentation"
+}
+
+// Description 返回技能描述
+func (s *DocumentationSkill) Description() string {
+	return "AI驱动的文档生成技能，自动生成API文档、代码注释和用户手册"
+}
+
+// Validate 验证输入参数
+func (s *DocumentationSkill) Validate(input *SkillInput) error {
+	if input.Type != "code" && input.Type != "text" {
+		return fmt.Errorf("文档生成技能支持 code 或 text 类型输入")
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return fmt.Errorf("输入内容不能为空")
+	}
+	return nil
+}
+
+// Execute 执行文档生成
+func (s *DocumentationSkill) Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error) {
+	s.logger.Info("开始执行文档生成", "content_length", len(input.Content))
+
+	// 解析生成参数
+	docType := s.getParameter(input, "type", "api") // api, readme, comment
+	format := s.getParameter(input, "format", "markdown")
+	language := s.getParameter(input, "language", "zh-CN")
+
+	// 构建文档生成提示词
+	prompt := s.buildDocPrompt(input.Content, docType, format, language)
+
+	// 调用AI服务生成文档
+	documentation, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI服务调用失败: %w", err)
+	}
+
+	// 后处理生成的文档
+	processedDoc := s.postProcessDoc(documentation, format)
+
+	return &SkillOutput{
+		Type:    "text",
+		Content: processedDoc,
+		Metadata: map[string]interface{}{
+			"doc_type": docType,
+			"format":   format,
+			"language": language,
+			"length":   len(processedDoc),
+		},
+		Success: true,
+	}, nil
+}
+
+// TestGenerationSkill 测试生成技能
+type TestGenerationSkill struct {
+	config *Config
+	logger *logger.Logger
+}
+
+// NewTestGenerationSkill 创建测试生成技能
+func NewTestGenerationSkill(config *Config, logger *logger.Logger) *TestGenerationSkill {
+	return &TestGenerationSkill{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Name 返回技能名称
+func (s *TestGenerationSkill) Name() string {
+	return "test_generation"
+}
+
+// Description 返回技能描述
+func (s *TestGenerationSkill) Description() string {
+	return "AI驱动的测试生成技能，自动生成单元测试、集成测试和性能测试"
+}
+
+// Validate 验证输入参数
+func (s *TestGenerationSkill) Validate(input *SkillInput) error {
+	if input.Type != "code" {
+		return fmt.Errorf("测试生成技能只支持 code 类型输入")
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return fmt.Errorf("代码内容不能为空")
+	}
+	return nil
+}
+
+// Execute 执行测试生成
+func (s *TestGenerationSkill) Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error) {
+	s.logger.Info("开始执行测试生成", "content_length", len(input.Content))
+
+	// 解析测试参数
+	testType := s.getParameter(input, "test_type", "unit") // unit, integration, performance
+	framework := s.getParameter(input, "framework", s.config.Skills.TestGeneration.Framework)
+	coverage := s.getIntParameter(input, "coverage", s.config.Skills.TestGeneration.CoverageThreshold)
+
+	// 构建测试生成提示词
+	prompt := s.buildTestPrompt(input.Content, testType, framework, coverage)
+
+	// 调用AI服务生成测试
+	testCode, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI服务调用失败: %w", err)
+	}
+
+	// 后处理生成的测试代码
+	processedTest := s.postProcessTest(testCode, framework)
+
+	return &SkillOutput{
+		Type:    "code",
+		Content: processedTest,
+		Metadata: map[string]interface{}{
+			"test_type": testType,
+			"framework": framework,
+			"coverage":  coverage,
+			"lines":     strings.Count(processedTest, "\n") + 1,
+		},
+		Success: true,
+	}, nil
+}
+
+// APIDocsSkill API文档生成技能
+type APIDocsSkill struct {
+	config *Config
+	logger *logger.Logger
+}
+
+// NewAPIDocsSkill 创建API文档生成技能
+func NewAPIDocsSkill(config *Config, logger *logger.Logger) *APIDocsSkill {
+	return &APIDocsSkill{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Name 返回技能名称
+func (s *APIDocsSkill) Name() string {
+	return "api_docs"
+}
+
+// Description 返回技能描述
+func (s *APIDocsSkill) Description() string {
+	return "AI驱动的API文档生成技能，自动生成OpenAPI规范和接口文档"
+}
+
+// Validate 验证输入参数
+func (s *APIDocsSkill) Validate(input *SkillInput) error {
+	if input.Type != "code" {
+		return fmt.Errorf("API文档生成技能只支持 code 类型输入")
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return fmt.Errorf("代码内容不能为空")
+	}
+	return nil
+}
+
+// Execute 执行API文档生成
+func (s *APIDocsSkill) Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error) {
+	s.logger.Info("开始执行API文档生成", "content_length", len(input.Content))
+
+	// 解析文档参数
+	format := s.getParameter(input, "format", s.config.Skills.APIDocs.Format)
+	version := s.getParameter(input, "version", "1.0.0")
+	includeExamples := s.getBoolParameter(input, "include_examples", true)
+
+	// 构建API文档生成提示词
+	prompt := s.buildAPIDocPrompt(input.Content, format, version, includeExamples)
+
+	// 调用AI服务生成API文档
+	apiDoc, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI服务调用失败: %w", err)
+	}
+
+	// 后处理生成的API文档
+	processedDoc := s.postProcessAPIDoc(apiDoc, format)
+
+	return &SkillOutput{
+		Type:    "text",
+		Content: processedDoc,
+		Metadata: map[string]interface{}{
+			"format":           format,
+			"version":          version,
+			"include_examples": includeExamples,
+			"length":           len(processedDoc),
+		},
+		Success: true,
+	}, nil
+}
+
+// 通用辅助方法
+func (s *DocumentationSkill) getParameter(input *SkillInput, key, defaultValue string) string {
+	if value, exists := input.Parameters[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return defaultValue
+}
+
+func (s *TestGenerationSkill) getParameter(input *SkillInput, key, defaultValue string) string {
+	if value, exists := input.Parameters[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return defaultValue
+}
+
+func (s *TestGenerationSkill) getIntParameter(input *SkillInput, key string, defaultValue int) int {
+	if value, exists := input.Parameters[key]; exists {
+		if i, ok := value.(int); ok {
+			return i
+		}
+	}
+	return defaultValue
+}
+
+func (s *APIDocsSkill) getParameter(input *SkillInput, key, defaultValue string) string {
+	if value, exists := input.Parameters[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return defaultValue
+}
+
+func (s *APIDocsSkill) getBoolParameter(input *SkillInput, key string, defaultValue bool) bool {
+	if value, exists := input.Parameters[key]; exists {
+		if b, ok := value.(bool); ok {
+			return b
+		}
+	}
+	return defaultValue
+}
+
+// 构建提示词方法
+func (s *DocumentationSkill) buildDocPrompt(content, docType, format, language string) string {
+	return fmt.Sprintf(`请为以下代码生成%s文档，格式：%s，语言：%s
+
+代码：
+%s
+
+要求：
+1. 文档应该清晰、准确、易懂
+2. 包含必要的示例和用法说明
+3. 遵循%s格式规范
+4. 使用%s语言编写
+
+请只返回文档内容。`, docType, format, language, content, format, language)
+}
+
+func (s *TestGenerationSkill) buildTestPrompt(code, testType, framework string, coverage int) string {
+	return fmt.Sprintf(`请为以下代码生成%s测试，使用%s框架，目标覆盖率：%d%%
+
+代码：
+%s
+
+要求：
+1. 生成完整的测试用例
+2. 包含正常情况和边界情况测试
+3. 使用%s框架的最佳实践
+4. 确保测试覆盖率达到%d%%
+5. 包含必要的mock和断言
+
+请只返回测试代码。`, testType, framework, coverage, code, framework, coverage)
+}
+
+func (s *APIDocsSkill) buildAPIDocPrompt(code, format, version string, includeExamples bool) string {
+	exampleText := ""
+	if includeExamples {
+		exampleText = "包含请求和响应示例"
+	}
+
+	return fmt.Sprintf(`请为以下API代码生成%s格式的文档，版本：%s
+
+代码：
+%s
+
+要求：
+1. 生成完整的API规范
+2. 包含所有端点的详细描述
+3. 定义请求和响应模型
+4. %s
+5. 遵循%s规范
+
+请只返回文档内容。`, format, version, code, exampleText, format)
+}
+
+// 后处理方法
+func (s *DocumentationSkill) postProcessDoc(doc, format string) string {
+	// 根据格式进行后处理
+	return strings.TrimSpace(doc)
+}
+
+func (s *TestGenerationSkill) postProcessTest(test, framework string) string {
+	// 根据框架进行后处理
+	return strings.TrimSpace(test)
+}
+
+func (s *APIDocsSkill) postProcessAPIDoc(doc, format string) string {
+	// 根据格式进行后处理
+	return strings.TrimSpace(doc)
+}
+
+// AI服务调用方法（所有技能共用）
+func (s *DocumentationSkill) callAIService(ctx context.Context, prompt string) (string, error) {
+	// TODO: 实现实际的AI服务调用
+	s.logger.Info("调用AI服务生成文档", "prompt_length", len(prompt))
+	return "# 生成的文档\n\n这是AI生成的文档内容...", nil
+}
+
+func (s *TestGenerationSkill) callAIService(ctx context.Context, prompt string) (string, error) {
+	// TODO: 实现实际的AI服务调用
+	s.logger.Info("调用AI服务生成测试", "prompt_length", len(prompt))
+	return "// 生成的测试代码\nfunc TestExample(t *testing.T) {\n\t// 测试逻辑\n}", nil
+}
+
+func (s *APIDocsSkill) callAIService(ctx context.Context, prompt string) (string, error) {
+	// TODO: 实现实际的AI服务调用
+	s.logger.Info("调用AI服务生成API文档", "prompt_length", len(prompt))
+	return "openapi: 3.0.0\ninfo:\n  title: Generated API\n  version: 1.0.0", nil
+}

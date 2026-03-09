@@ -1,0 +1,181 @@
+package skills
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"time"
+
+	"{{.ModuleName}}/pkg/logger"
+)
+
+// SkillManager AI技能管理器
+type SkillManager struct {
+	skills   map[string]Skill
+	config   *Config
+	logger   *logger.Logger
+	ctx      context.Context
+	cancel   context.CancelFunc
+}
+
+// Skill AI技能接口
+type Skill interface {
+	// Name 返回技能名称
+	Name() string
+	// Description 返回技能描述
+	Description() string
+	// Execute 执行技能
+	Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error)
+	// Validate 验证输入参数
+	Validate(input *SkillInput) error
+}
+
+// SkillInput 技能输入参数
+type SkillInput struct {
+	Type       string                 `json:"type"`       // 输入类型：code, text, file
+	Content    string                 `json:"content"`    // 输入内容
+	Parameters map[string]interface{} `json:"parameters"` // 额外参数
+	Context    map[string]string      `json:"context"`    // 上下文信息
+}
+
+// SkillOutput 技能输出结果
+type SkillOutput struct {
+	Type      string                 `json:"type"`       // 输出类型：code, text, file
+	Content   string                 `json:"content"`    // 输出内容
+	Metadata  map[string]interface{} `json:"metadata"`   // 元数据
+	Success   bool                   `json:"success"`    // 执行是否成功
+	Error     string                 `json:"error"`      // 错误信息
+	Duration  time.Duration          `json:"duration"`   // 执行时长
+}
+
+// NewSkillManager 创建技能管理器
+func NewSkillManager(config *Config, logger *logger.Logger) *SkillManager {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	sm := &SkillManager{
+		skills: make(map[string]Skill),
+		config: config,
+		logger: logger,
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
+	// 注册内置技能
+	sm.registerBuiltinSkills()
+
+	return sm
+}
+
+// RegisterSkill 注册技能
+func (sm *SkillManager) RegisterSkill(skill Skill) error {
+	if skill == nil {
+		return fmt.Errorf("技能不能为空")
+	}
+
+	name := skill.Name()
+	if name == "" {
+		return fmt.Errorf("技能名称不能为空")
+	}
+
+	if _, exists := sm.skills[name]; exists {
+		return fmt.Errorf("技能 %s 已存在", name)
+	}
+
+	sm.skills[name] = skill
+	sm.logger.Info("注册技能成功", "skill", name)
+
+	return nil
+}
+
+// ExecuteSkill 执行技能
+func (sm *SkillManager) ExecuteSkill(name string, input *SkillInput) (*SkillOutput, error) {
+	skill, exists := sm.skills[name]
+	if !exists {
+		return nil, fmt.Errorf("技能 %s 不存在", name)
+	}
+
+	// 验证输入
+	if err := skill.Validate(input); err != nil {
+		return nil, fmt.Errorf("输入验证失败: %w", err)
+	}
+
+	// 创建执行上下文
+	ctx, cancel := context.WithTimeout(sm.ctx, sm.config.AI.API.Timeout)
+	defer cancel()
+
+	start := time.Now()
+	sm.logger.Info("开始执行技能", "skill", name, "type", input.Type)
+
+	// 执行技能
+	output, err := skill.Execute(ctx, input)
+	duration := time.Since(start)
+
+	if err != nil {
+		sm.logger.Error("技能执行失败", "skill", name, "error", err, "duration", duration)
+		return &SkillOutput{
+			Success:  false,
+			Error:    err.Error(),
+			Duration: duration,
+		}, err
+	}
+
+	output.Duration = duration
+	sm.logger.Info("技能执行成功", "skill", name, "duration", duration)
+
+	return output, nil
+}
+
+// ListSkills 列出所有技能
+func (sm *SkillManager) ListSkills() map[string]string {
+	skills := make(map[string]string)
+	for name, skill := range sm.skills {
+		skills[name] = skill.Description()
+	}
+	return skills
+}
+
+// GetSkill 获取技能
+func (sm *SkillManager) GetSkill(name string) (Skill, bool) {
+	skill, exists := sm.skills[name]
+	return skill, exists
+}
+
+// Close 关闭技能管理器
+func (sm *SkillManager) Close() error {
+	sm.cancel()
+	sm.logger.Info("技能管理器已关闭")
+	return nil
+}
+
+// registerBuiltinSkills 注册内置技能
+func (sm *SkillManager) registerBuiltinSkills() {
+	// 注册代码生成技能
+	if sm.config.Skills.CodeGeneration.Enabled {
+		codeGen := NewCodeGenerationSkill(sm.config, sm.logger)
+		sm.RegisterSkill(codeGen)
+	}
+
+	// 注册代码审查技能
+	if sm.config.Skills.CodeReview.Enabled {
+		codeReview := NewCodeReviewSkill(sm.config, sm.logger)
+		sm.RegisterSkill(codeReview)
+	}
+
+	// 注册文档生成技能
+	if sm.config.Skills.Documentation.Enabled {
+		docGen := NewDocumentationSkill(sm.config, sm.logger)
+		sm.RegisterSkill(docGen)
+	}
+
+	// 注册测试生成技能
+	if sm.config.Skills.TestGeneration.Enabled {
+		testGen := NewTestGenerationSkill(sm.config, sm.logger)
+		sm.RegisterSkill(testGen)
+	}
+
+	// 注册API文档生成技能
+	if sm.config.Skills.APIDocs.Enabled {
+		apiDocs := NewAPIDocsSkill(sm.config, sm.logger)
+		sm.RegisterSkill(apiDocs)
+	}
+}

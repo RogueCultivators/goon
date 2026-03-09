@@ -1,0 +1,121 @@
+package skills
+
+import (
+	"time"
+)
+
+// Config AI技能配置
+type Config struct {
+	AI           AIConfig           `yaml:"ai"`
+	Skills       SkillsConfig       `yaml:"skills"`
+	Workflows    WorkflowsConfig    `yaml:"workflows"`
+	Integrations IntegrationsConfig `yaml:"integrations"`
+	Logging      LoggingConfig      `yaml:"logging"`
+}
+
+// AIConfig AI服务配置
+type AIConfig struct {
+	Provider string    `yaml:"provider"`
+	API      APIConfig `yaml:"api"`
+}
+
+// APIConfig API配置
+type APIConfig struct {
+	BaseURL    string        `yaml:"base_url"`
+	APIKey     string        `yaml:"api_key"`
+	Model      string        `yaml:"model"`
+	Timeout    time.Duration `yaml:"timeout"`
+	MaxRetries int           `yaml:"max_retries"`
+}
+
+// SkillsConfig 技能配置
+type SkillsConfig struct {
+	CodeGeneration  CodeGenerationConfig  `yaml:"code_generation"`
+	CodeReview      CodeReviewConfig      `yaml:"code_review"`
+	Documentation   DocumentationConfig   `yaml:"documentation"`
+	TestGeneration  TestGenerationConfig  `yaml:"test_generation"`
+	APIDocs         APIDocsConfig         `yaml:"api_docs"`
+}
+
+// CodeGenerationConfig 代码生成配置
+type CodeGenerationConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	TemplatesPath string `yaml:"templates_path"`
+	OutputPath    string `yaml:"output_path"`
+}
+
+// CodeReviewConfig 代码审查配置
+type CodeReviewConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	RulesPath string `yaml:"rules_path"`
+	AutoFix   bool   `yaml:"auto_fix"`
+}
+
+// DocumentationConfig 文档生成配置
+type DocumentationConfig struct {
+	Enabled    bool     `yaml:"enabled"`
+	Formats    []string `yaml:"formats"`
+	AutoUpdate bool     `yaml:"auto_update"`
+}
+
+// TestGenerationConfig 测试生成配置
+type TestGenerationConfig struct {
+	Enabled           bool `yaml:"enabled"`
+	Framework         string `yaml:"framework"`
+	CoverageThreshold int    `yaml:"coverage_threshold"`
+}
+
+// APIDocsConfig API文档配置
+type APIDocsConfig struct {
+	Enabled       bool   `yaml:"enabled"`
+	Format        string `yaml:"format"`
+	AutoGenerate  bool   `yaml:"auto_generate"`
+}
+
+// WorkflowsConfig 工作流配置
+type WorkflowsConfig struct {
+	Development []WorkflowStep `yaml:"development"`
+	Deployment  []WorkflowStep `yaml:"deployment"`
+}
+
+// WorkflowStep 工作流步骤
+type WorkflowStep struct {
+	Skill   string `yaml:"skill"`
+	Trigger string `yaml:"trigger"`
+}
+
+// IntegrationsConfig 集成配置
+type IntegrationsConfig struct {
+	Git  GitConfig  `yaml:"git"`
+	IDE  IDEConfig  `yaml:"ide"`
+	CICD CICDConfig `yaml:"cicd"`
+}
+
+// GitConfig Git集成配置
+type GitConfig struct {
+	Enabled               bool   `yaml:"enabled"`
+	AutoCommit            bool   `yaml:"auto_commit"`
+	CommitMessageTemplate string `yaml:"commit_message_template"`
+}
+
+// IDEConfig IDE集成配置
+type IDEConfig struct {
+	Enabled           bool `yaml:"enabled"`
+	VSCodeExtension   bool `yaml:"vscode_extension"`
+	JetBrainsPlugin   bool `yaml:"jetbrains_plugin"`
+}
+
+// CICDConfig CI/CD集成配置
+type CICDConfig struct {
+	Enabled       bool `yaml:"enabled"`
+	GitHubActions bool `yaml:"github_actions"`
+	GitLabCI      bool `yaml:"gitlab_ci"`
+}
+
+// LoggingConfig 日志配置
+type LoggingConfig struct {
+	Level    string `yaml:"level"`
+	Format   string `yaml:"format"`
+	Output   string `yaml:"output"`
+	FilePath string `yaml:"file_path"`
+}

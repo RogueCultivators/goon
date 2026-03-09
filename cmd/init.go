@@ -69,6 +69,10 @@ var initCmd = &cobra.Command{
 			if !ok {
 				return
 			}
+			skills, ok := mustGetBool(cmd, "skills")
+			if !ok {
+				return
+			}
 
 			if moduleName == "" {
 				moduleName = projectName
@@ -83,6 +87,7 @@ var initCmd = &cobra.Command{
 				UseAuth:     true,
 				AuthMethod:  "JWT",
 				Database:    "PostgreSQL",
+				UseSkills:   skills,
 			}
 		}
 
@@ -129,5 +134,6 @@ func init() {
 	initCmd.Flags().StringP("module", "m", "", "Go module 名称 (默认使用项目名称)")
 	initCmd.Flags().Bool("minimal", false, "只生成核心文件和目录")
 	initCmd.Flags().Bool("example", false, "生成包含完整实现的示例代码（user 模块）")
+	initCmd.Flags().Bool("skills", false, "启用AI技能功能，包含代码生成、审查、文档生成等AI驱动的开发工具")
 	initCmd.Flags().BoolP("interactive", "i", false, "交互式向导模式")
 }

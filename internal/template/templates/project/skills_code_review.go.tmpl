@@ -1,0 +1,272 @@
+package skills
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"{{.ModuleName}}/pkg/logger"
+)
+
+// CodeReviewSkill 代码审查技能
+type CodeReviewSkill struct {
+	config *Config
+	logger *logger.Logger
+}
+
+// NewCodeReviewSkill 创建代码审查技能
+func NewCodeReviewSkill(config *Config, logger *logger.Logger) *CodeReviewSkill {
+	return &CodeReviewSkill{
+		config: config,
+		logger: logger,
+	}
+}
+
+// Name 返回技能名称
+func (s *CodeReviewSkill) Name() string {
+	return "code_review"
+}
+
+// Description 返回技能描述
+func (s *CodeReviewSkill) Description() string {
+	return "AI驱动的代码审查技能，自动检测代码质量问题并提供改进建议"
+}
+
+// Validate 验证输入参数
+func (s *CodeReviewSkill) Validate(input *SkillInput) error {
+	if input.Type != "code" {
+		return fmt.Errorf("代码审查技能只支持 code 类型输入")
+	}
+	if strings.TrimSpace(input.Content) == "" {
+		return fmt.Errorf("代码内容不能为空")
+	}
+	return nil
+}
+
+// Execute 执行代码审查
+func (s *CodeReviewSkill) Execute(ctx context.Context, input *SkillInput) (*SkillOutput, error) {
+	s.logger.Info("开始执行代码审查", "content_length", len(input.Content))
+
+	// 解析审查参数
+	language := s.getParameter(input, "language", "go")
+	severity := s.getParameter(input, "severity", "medium") // low, medium, high
+	autoFix := s.getBoolParameter(input, "auto_fix", s.config.Skills.CodeReview.AutoFix)
+
+	// 构建审查提示词
+	prompt := s.buildReviewPrompt(input.Content, language, severity)
+
+	// 调用AI服务进行代码审查
+	reviewResult, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("AI服务调用失败: %w", err)
+	}
+
+	// 解析审查结果
+	issues := s.parseReviewResult(reviewResult)
+
+	// 如果启用自动修复，尝试修复问题
+	var fixedCode string
+	if autoFix && len(issues) > 0 {
+		fixedCode, err = s.autoFixIssues(ctx, input.Content, issues, language)
+		if err != nil {
+			s.logger.Warn("自动修复失败", "error", err)
+		}
+	}
+
+	return &SkillOutput{
+		Type:    "text",
+		Content: reviewResult,
+		Metadata: map[string]interface{}{
+			"language":     language,
+			"severity":     severity,
+			"issues_count": len(issues),
+			"auto_fix":     autoFix,
+			"fixed_code":   fixedCode,
+			"issues":       issues,
+		},
+		Success: true,
+	}, nil
+}
+
+// ReviewIssue 代码审查问题
+type ReviewIssue struct {
+	Type        string `json:"type"`        // bug, style, performance, security
+	Severity    string `json:"severity"`    // low, medium, high, critical
+	Line        int    `json:"line"`        // 问题所在行号
+	Column      int    `json:"column"`      // 问题所在列号
+	Message     string `json:"message"`     // 问题描述
+	Suggestion  string `json:"suggestion"`  // 修复建议
+	Rule        string `json:"rule"`        // 违反的规则
+	Fixable     bool   `json:"fixable"`     // 是否可自动修复
+}
+
+// getParameter 获取字符串参数
+func (s *CodeReviewSkill) getParameter(input *SkillInput, key, defaultValue string) string {
+	if value, exists := input.Parameters[key]; exists {
+		if str, ok := value.(string); ok {
+			return str
+		}
+	}
+	return defaultValue
+}
+
+// getBoolParameter 获取布尔参数
+func (s *CodeReviewSkill) getBoolParameter(input *SkillInput, key string, defaultValue bool) bool {
+	if value, exists := input.Parameters[key]; exists {
+		if b, ok := value.(bool); ok {
+			return b
+		}
+	}
+	return defaultValue
+}
+
+// buildReviewPrompt 构建审查提示词
+func (s *CodeReviewSkill) buildReviewPrompt(code, language, severity string) string {
+	return fmt.Sprintf(`请对以下%s代码进行详细审查，检查级别：%s
+
+代码：
+```%s
+%s
+```
+
+请检查以下方面：
+1. 代码质量和最佳实践
+2. 潜在的bug和逻辑错误
+3. 性能问题
+4. 安全漏洞
+5. 代码风格和规范
+6. 可维护性和可读性
+
+对于每个问题，请提供：
+- 问题类型（bug/style/performance/security）
+- 严重程度（low/medium/high/critical）
+- 具体位置（行号）
+- 问题描述
+- 修复建议
+- 是否可自动修复
+
+请以结构化的格式返回结果。`, language, severity, language, code)
+}
+
+// callAIService 调用AI服务
+func (s *CodeReviewSkill) callAIService(ctx context.Context, prompt string) (string, error) {
+	// TODO: 实现实际的AI服务调用
+	s.logger.Info("调用AI服务进行代码审查", "prompt_length", len(prompt))
+
+	// 模拟AI服务响应
+	return `代码审查结果：
+
+发现的问题：
+
+1. [MEDIUM] 第15行：缺少错误处理
+   - 类型：bug
+   - 描述：函数调用后未检查返回的错误
+   - 建议：添加 if err != nil 检查
+   - 可自动修复：是
+
+2. [LOW] 第8行：变量命名不规范
+   - 类型：style
+   - 描述：变量名 'temp' 不够描述性
+   - 建议：使用更具描述性的名称，如 'tempResult'
+   - 可自动修复：否
+
+3. [HIGH] 第22行：潜在的SQL注入风险
+   - 类型：security
+   - 描述：直接拼接SQL查询字符串
+   - 建议：使用参数化查询或ORM
+   - 可自动修复：否
+
+总体评价：代码结构清晰，但需要改进错误处理和安全性。`, nil
+}
+
+// parseReviewResult 解析审查结果
+func (s *CodeReviewSkill) parseReviewResult(result string) []ReviewIssue {
+	// TODO: 实现实际的结果解析逻辑
+	// 这里应该解析AI返回的结构化结果
+
+	// 模拟解析结果
+	return []ReviewIssue{
+		{
+			Type:       "bug",
+			Severity:   "medium",
+			Line:       15,
+			Column:     0,
+			Message:    "缺少错误处理",
+			Suggestion: "添加 if err != nil 检查",
+			Rule:       "error-handling",
+			Fixable:    true,
+		},
+		{
+			Type:       "style",
+			Severity:   "low",
+			Line:       8,
+			Column:     0,
+			Message:    "变量命名不规范",
+			Suggestion: "使用更具描述性的名称",
+			Rule:       "naming-convention",
+			Fixable:    false,
+		},
+		{
+			Type:       "security",
+			Severity:   "high",
+			Line:       22,
+			Column:     0,
+			Message:    "潜在的SQL注入风险",
+			Suggestion: "使用参数化查询",
+			Rule:       "sql-injection",
+			Fixable:    false,
+		},
+	}
+}
+
+// autoFixIssues 自动修复问题
+func (s *CodeReviewSkill) autoFixIssues(ctx context.Context, code string, issues []ReviewIssue, language string) (string, error) {
+	if !s.config.Skills.CodeReview.AutoFix {
+		return "", fmt.Errorf("自动修复功能未启用")
+	}
+
+	// 过滤出可修复的问题
+	var fixableIssues []ReviewIssue
+	for _, issue := range issues {
+		if issue.Fixable {
+			fixableIssues = append(fixableIssues, issue)
+		}
+	}
+
+	if len(fixableIssues) == 0 {
+		return "", fmt.Errorf("没有可自动修复的问题")
+	}
+
+	// 构建修复提示词
+	prompt := s.buildFixPrompt(code, fixableIssues, language)
+
+	// 调用AI服务进行修复
+	fixedCode, err := s.callAIService(ctx, prompt)
+	if err != nil {
+		return "", fmt.Errorf("调用AI修复服务失败: %w", err)
+	}
+
+	return fixedCode, nil
+}
+
+// buildFixPrompt 构建修复提示词
+func (s *CodeReviewSkill) buildFixPrompt(code string, issues []ReviewIssue, language string) string {
+	var issueDescriptions []string
+	for _, issue := range issues {
+		issueDescriptions = append(issueDescriptions,
+			fmt.Sprintf("第%d行：%s - %s", issue.Line, issue.Message, issue.Suggestion))
+	}
+
+	return fmt.Sprintf(`请修复以下%s代码中的问题：
+
+原始代码：
+```%s
+%s
+```
+
+需要修复的问题：
+%s
+
+请返回修复后的完整代码，只返回代码，不要包含解释。`,
+		language, language, code, strings.Join(issueDescriptions, "\n"))
+}

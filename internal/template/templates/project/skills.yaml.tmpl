@@ -1,0 +1,90 @@
+# Skills配置文件 - AI处理能力配置
+# 用于配置项目的AI处理技能和能力
+
+# AI服务配置
+ai:
+  # 默认AI服务提供商
+  provider: "openai"  # openai, anthropic, local
+
+  # API配置
+  api:
+    base_url: "${AI_API_BASE_URL}"
+    api_key: "${AI_API_KEY}"
+    model: "${AI_MODEL:-gpt-4}"
+    timeout: 30s
+    max_retries: 3
+
+# Skills技能配置
+skills:
+  # 代码生成技能
+  code_generation:
+    enabled: true
+    templates_path: "./skills/templates"
+    output_path: "./generated"
+
+  # 代码审查技能
+  code_review:
+    enabled: true
+    rules_path: "./skills/review_rules"
+    auto_fix: false
+
+  # 文档生成技能
+  documentation:
+    enabled: true
+    formats: ["markdown", "html"]
+    auto_update: true
+
+  # 测试生成技能
+  test_generation:
+    enabled: true
+    framework: "testify"  # testify, ginkgo
+    coverage_threshold: 80
+
+  # API文档生成技能
+  api_docs:
+    enabled: true
+    format: "openapi"  # openapi, swagger
+    auto_generate: true
+
+# 工作流配置
+workflows:
+  # 开发工作流
+  development:
+    - skill: "code_generation"
+      trigger: "on_file_change"
+    - skill: "test_generation"
+      trigger: "on_code_commit"
+
+  # 部署工作流
+  deployment:
+    - skill: "documentation"
+      trigger: "on_release"
+    - skill: "api_docs"
+      trigger: "on_api_change"
+
+# 集成配置
+integrations:
+  # Git集成
+  git:
+    enabled: true
+    auto_commit: false
+    commit_message_template: "feat(ai): ${skill_name} - ${description}"
+
+  # IDE集成
+  ide:
+    enabled: true
+    vscode_extension: true
+    jetbrains_plugin: true
+
+  # CI/CD集成
+  cicd:
+    enabled: true
+    github_actions: true
+    gitlab_ci: false
+
+# 日志配置
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json, text
+  output: "stdout"  # stdout, file
+  file_path: "./logs/skills.log"
