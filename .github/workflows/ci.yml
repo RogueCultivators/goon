@@ -93,18 +93,90 @@ jobs:
       if: runner.os == 'Windows'
       run: .\goon.exe version
 
-  security:
-    name: Security Scan
+  auto-release:
+    name: Auto Release
     runs-on: ubuntu-latest
+    needs: [lint, test, integration-test, build]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    permissions:
+      contents: write
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
 
-    - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
+    - name: Analyze changes and determine version bump
+      id: version_bump
+      run: |
+        # 获取最新的 tag，如果没有则使用 v0.0.0
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+        # 获取自上次tag以来的提交
+        if [ "$LATEST_TAG" = "v0.0.0" ]; then
+          COMMITS=$(git rev-list --count HEAD)
+          FILES_CHANGED=$(git diff --name-only $(git rev-list --max-parents=0 HEAD) HEAD | wc -l)
+        else
+          COMMITS=$(git rev-list --count ${LATEST_TAG}..HEAD)
+          FILES_CHANGED=$(git diff --name-only ${LATEST_TAG}..HEAD | wc -l)
+        fi
+
+        echo "Commits since last tag: $COMMITS"
+        echo "Files changed: $FILES_CHANGED"
+
+        # 解析版本号
+        VERSION=${LATEST_TAG#v}
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+        # 判断是否为大更新 (超过10个文件变更或超过20个提交)
+        if [ $FILES_CHANGED -gt 10 ] || [ $COMMITS -gt 20 ]; then
+          echo "Large update detected, bumping minor version"
+          MINOR=$((MINOR + 1))
+          PATCH=0
+          BUMP_TYPE="minor"
+        else
+          echo "Small update, bumping patch version"
+          PATCH=$((PATCH + 1))
+          BUMP_TYPE="patch"
+        fi
+
+        NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+        echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+        echo "commits_count=$COMMITS" >> $GITHUB_OUTPUT
+        echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+
+        echo "Latest tag: $LATEST_TAG"
+        echo "New tag: $NEW_TAG"
+        echo "Bump type: $BUMP_TYPE"
+
+    - name: Create and push tag
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        # 创建发布说明
+        RELEASE_NOTES="Auto release ${{ steps.version_bump.outputs.new_tag }}
+
+        Version bump: ${{ steps.version_bump.outputs.bump_type }}
+        Commits: ${{ steps.version_bump.outputs.commits_count }}
+        Files changed: ${{ steps.version_bump.outputs.files_changed }}"
+
+        git tag -a ${{ steps.version_bump.outputs.new_tag }} -m "$RELEASE_NOTES"
+        git push origin ${{ steps.version_bump.outputs.new_tag }}
+
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
       with:
-        args: './...'
+        version: latest
+        args: release --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

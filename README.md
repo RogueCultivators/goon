@@ -22,14 +22,30 @@
 - 🔤 智能命名转换，支持驼峰、下划线等多种命名格式
 - 🔁 幂等性支持，可安全重复执行命令
 - ✨ **示例代码生成**，一键生成可运行的完整项目（包含 User 模块、数据库迁移、Makefile 等）
+- 🎮 **交互式向导**，通过问答方式配置项目
+- 🎨 **彩色输出**，支持进度条和加载动画
+- 🔧 **配置文件支持**，自定义默认设置
+- 🧪 **测试生成**，自动生成单元测试和集成测试
+- 🔄 **模块重命名**，安全重命名模块及其引用
+- 📋 **批量操作**，一次添加多个模块
+- 🛡️ **安全保障**，备份回滚机制和路径验证
+- 📊 **高测试覆盖率**，80%+ 的测试覆盖率保证代码质量
 
 ## 安装
+
+### 系统要求
+
+- Go 1.24.0 或更高版本
+- Git（用于版本控制）
+- Docker 和 Docker Compose（可选，用于数据库）
 
 ### 从源码构建
 
 ```bash
 git clone https://github.com/RogueCultivators/goon.git
 cd goon
+make build
+# 或者
 go build -o goon main.go
 ```
 
@@ -37,6 +53,13 @@ go build -o goon main.go
 
 ```bash
 go install github.com/RogueCultivators/goon@latest
+```
+
+### 验证安装
+
+```bash
+goon version
+# 输出版本信息，确认安装成功
 ```
 
 ## 快速开始
@@ -596,7 +619,50 @@ curl http://localhost:8080/api/v1/ping
 
 ## 配置
 
-编辑 `config.yaml` 文件：
+### 配置文件
+
+Goon 支持通过配置文件自定义默认行为。配置文件按以下优先级加载：
+
+1. 命令行参数（最高优先级）
+2. 项目根目录的 `.goonrc.yaml`
+3. 用户主目录的 `.goonrc.yaml`
+4. 默认配置（最低优先级）
+
+### 配置文件示例
+
+创建 `.goonrc.yaml` 文件：
+
+```yaml
+# 模板配置
+templates:
+  custom_path: "./custom-templates"  # 自定义模板路径
+
+# 默认设置
+defaults:
+  layers: [handler, service, model, repository, schema, routes]  # 默认生成的层
+  auto_register: true                # 是否自动注册路由
+  example_mode: false               # 是否默认使用示例模式
+
+# 命名风格
+naming:
+  style: snake_case                 # 命名风格：snake_case, camelCase, PascalCase, kebab-case
+
+# UI 设置
+ui:
+  color: true                       # 是否启用彩色输出
+  progress: true                    # 是否显示进度条
+  verbose: false                    # 是否默认显示详细日志
+
+# 项目设置
+project:
+  default_module_prefix: "github.com/username"  # 默认模块前缀
+  default_database: "postgresql"               # 默认数据库类型
+  default_auth: "jwt"                          # 默认认证方式
+```
+
+### 环境变量配置
+
+生成的项目支持环境变量配置，编辑 `config.yaml` 文件：
 
 ```yaml
 port: 8080
@@ -604,10 +670,21 @@ log_level: info
 
 database:
   host: localhost
-  port: 3306
-  user: root
+  port: 5432
+  user: postgres
   password: ""
   dbname: myapp
+  sslmode: disable
+
+jwt:
+  secret: "your-secret-key"
+  expires_in: "24h"
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
 ```
 
 ## 命令参考
@@ -627,6 +704,8 @@ goon init --interactive
 - `-m, --module <名称>`: 指定 Go module 名称（默认使用项目名称）
 - `--example`: 生成包含完整实现的示例代码（User 模块 + 数据库迁移 + Makefile）⭐ 推荐
 - `--minimal`: 只生成核心文件和目录
+- `-v, --verbose`: 显示详细日志
+- `--no-color`: 禁用彩色输出
 
 示例：
 ```bash
@@ -639,18 +718,19 @@ goon init myapp -m github.com/user/myapp
 
 ### goon add
 
-添加新模块到项目。
+添加新模块到项目（支持批量添加）。
 
 ```bash
-goon add <模块名称> [选项]
+goon add <模块名称...> [选项]
 ```
 
 选项：
 - `-l, --layers <层列表>`: 指定要生成的层，逗号分隔（handler,service,model,repository,schema,routes）
 - `--example`: 生成包含完整实现的示例代码（包含实际字段、验证规则、业务逻辑）⭐ 推荐
 - `--register`: 是否自动注册路由（默认为 true）
-- `--dry-run`: 预览将要生成的文件，不实际创建 🆕
+- `--dry-run`: 预览将要生成的文件，不实际创建
 - `-v, --verbose`: 显示详细日志
+- `--no-color`: 禁用彩色输出
 
 示例：
 ```bash
@@ -659,7 +739,51 @@ goon add product --example         # 推荐：生成完整可运行的代码
 goon add order --layers=handler,service
 goon add payment --register=false
 goon add userProfile               # 支持驼峰命名
-goon add user --dry-run            # 🆕 预览将生成的文件
+goon add user --dry-run            # 预览将生成的文件
+# 批量添加模块
+goon add user product order        # 空格分隔
+goon add user,product,order        # 逗号分隔
+```
+
+### goon generate
+
+生成代码（测试文件等）。
+
+```bash
+goon generate <类型> <模块名称> [选项]
+```
+
+类型：
+- `test`: 生成测试文件
+
+选项：
+- `-l, --layers <层列表>`: 指定要生成测试的层
+- `--all`: 为所有模块生成测试
+- `-v, --verbose`: 显示详细日志
+
+示例：
+```bash
+goon generate test user              # 为 user 模块生成测试
+goon generate test product -l handler # 只生成 handler 测试
+goon generate test --all             # 为所有模块生成测试
+```
+
+### goon rename
+
+重命名模块及其所有引用。
+
+```bash
+goon rename <旧名称> <新名称> [选项]
+```
+
+选项：
+- `--dry-run`: 预览将要进行的更改
+- `-v, --verbose`: 显示详细日志
+
+示例：
+```bash
+goon rename user account           # 重命名模块
+goon rename old new --dry-run      # 预览更改
 ```
 
 ### goon add pkg
@@ -693,20 +817,13 @@ goon add pkg email
 列出项目中的所有模块。
 
 ```bash
-goon list
+goon list [选项]
 ```
+
+选项：
+- `-v, --verbose`: 显示详细信息
 
 显示 internal 目录下的所有业务模块及其包含的文件。
-
-### goon list-pkg
-
-列出所有可用的功能包。
-
-```bash
-goon list-pkg
-```
-
-显示可以通过 `goon add pkg` 添加的所有功能包。
 
 ### goon template
 
@@ -738,6 +855,7 @@ goon remove <模块名称> [选项]
 
 选项：
 - `-f, --force`: 强制删除，不要求确认
+- `-v, --verbose`: 显示详细日志
 
 示例：
 ```bash
@@ -745,56 +863,281 @@ goon remove user
 goon remove product --force
 ```
 
-注意：删除模块后需要手动从 router.go 中移除相关路由注册代码。
+### goon version
+
+显示版本信息。
+
+```bash
+goon version
+```
+
+显示 Goon 的版本、构建信息和 Git 提交哈希。
+
+### 全局选项
+
+所有命令都支持以下全局选项：
+- `-v, --verbose`: 显示详细日志
+- `--no-color`: 禁用彩色输出
+- `--config <文件>`: 指定配置文件路径
 
 ## 最佳实践
 
-### 1. 使用 Minimal 模式开始
+### 1. 推荐的项目初始化流程
 
-对于小型项目或原型开发，建议使用 `--minimal` 模式：
-
+**新手推荐流程**：
 ```bash
-goon init myapp --minimal
+# 使用交互式向导（最简单）
+goon init --interactive
+
+# 或者直接生成完整示例项目
+goon init myproject --example
+cd myproject
+./scripts/setup.sh  # 自动设置开发环境
 ```
 
-这样可以避免生成不需要的功能包，保持项目简洁。
-
-### 2. 按需生成层级
-
-如果不需要完整的分层架构，可以只生成需要的层：
-
+**经验开发者流程**：
 ```bash
-# 简单的 API，只需要 handler
-goon add simple --layers=handler
+# 使用 minimal 模式开始
+goon init myproject --minimal
+cd myproject
 
-# 需要业务逻辑但不需要数据库
-goon add logic --layers=handler,service
+# 按需添加功能包
+goon add pkg database
+goon add pkg jwt
+goon add pkg cache
+
+# 添加业务模块
+goon add user --example
+goon add product --layers=handler,service
 ```
 
-### 3. 利用幂等性补充文件
+### 2. 模块开发最佳实践
 
-如果后续需要添加缺失的层，可以再次运行命令：
-
+**推荐的模块添加顺序**：
 ```bash
-# 初始只生成 handler
-goon add user --layers=handler
+# 1. 先添加核心模块（用户、认证等）
+goon add user --example
+goon add auth --example
 
-# 后续添加 service 和 repository
-goon add user --layers=service,repository
+# 2. 再添加业务模块
+goon add product order payment
+
+# 3. 生成测试文件
+goon generate test --all
+
+# 4. 运行测试确保代码质量
+go test ./...
 ```
 
-### 4. 统一命名风格
-
-虽然工具支持多种命名格式，但建议在项目中保持统一的命名风格：
-
+**命名规范建议**：
 ```bash
-# 推荐：使用 snake_case
+# 推荐：使用 snake_case（会自动转换）
 goon add user_profile
 goon add order_history
+goon add payment_method
 
 # 或者使用 camelCase（会自动转换为 snake_case）
 goon add userProfile
 goon add orderHistory
+goon add paymentMethod
+```
+
+### 3. 配置管理最佳实践
+
+**项目级配置** (`.goonrc.yaml`)：
+```yaml
+# 团队统一的配置
+defaults:
+  layers: [handler, service, model, repository, schema, routes]
+  auto_register: true
+  example_mode: false
+
+naming:
+  style: snake_case
+
+ui:
+  color: true
+  progress: true
+```
+
+**个人配置** (`~/.goonrc.yaml`)：
+```yaml
+# 个人偏好配置
+ui:
+  verbose: true
+  color: true
+
+project:
+  default_module_prefix: "github.com/yourusername"
+```
+
+### 4. 测试驱动开发
+
+```bash
+# 1. 添加模块时同时生成测试
+goon add user --example
+goon generate test user
+
+# 2. 运行测试确保基础功能正常
+go test ./internal/user/...
+
+# 3. 开发业务逻辑
+# 编辑 internal/user/*.go 文件
+
+# 4. 再次运行测试
+go test ./internal/user/... -v
+
+# 5. 运行集成测试
+go test -run Integration ./internal/user/...
+```
+
+### 5. 版本控制最佳实践
+
+**推荐的 Git 工作流**：
+```bash
+# 1. 创建功能分支
+git checkout -b feature/user-module
+
+# 2. 使用 goon 生成代码
+goon add user --example
+
+# 3. 提交生成的代码
+git add .
+git commit -m "feat: add user module with CRUD operations"
+
+# 4. 开发和测试
+# ... 编辑代码 ...
+go test ./...
+
+# 5. 提交最终代码
+git add .
+git commit -m "feat: implement user authentication and validation"
+
+# 6. 合并到主分支
+git checkout main
+git merge feature/user-module
+```
+
+### 6. 性能优化建议
+
+**批量操作**：
+```bash
+# 推荐：一次添加多个模块
+goon add user product order payment
+
+# 而不是：
+goon add user
+goon add product
+goon add order
+goon add payment
+```
+
+**使用 --dry-run 预览**：
+```bash
+# 预览将要生成的文件
+goon add user --dry-run
+goon rename old new --dry-run
+```
+
+### 7. 团队协作最佳实践
+
+**统一开发环境**：
+```bash
+# 1. 团队成员克隆项目后
+git clone <project-url>
+cd <project>
+
+# 2. 运行初始化脚本
+./scripts/setup.sh
+
+# 3. 启动开发环境
+make dev
+```
+
+**代码质量保证**：
+```bash
+# 运行代码检查
+make lint
+
+# 运行所有测试
+make test
+
+# 查看测试覆盖率
+make coverage
+
+# 构建项目
+make build
+```
+
+### 8. 自定义模板使用
+
+**创建自定义模板**：
+```bash
+# 1. 创建自定义模板目录
+mkdir -p ./custom-templates/module
+
+# 2. 复制并修改现有模板
+cp -r internal/template/templates/module/* ./custom-templates/module/
+
+# 3. 编辑模板文件
+# 修改 ./custom-templates/module/handler.go.tmpl 等
+
+# 4. 配置使用自定义模板
+echo "templates:
+  custom_path: ./custom-templates" > .goonrc.yaml
+
+# 5. 使用自定义模板生成代码
+goon add mymodule
+```
+
+### 9. 错误处理和调试
+
+**使用详细日志**：
+```bash
+# 启用详细日志查看执行过程
+goon add user --verbose
+
+# 禁用彩色输出（用于日志文件）
+goon add user --no-color > goon.log
+```
+
+**处理生成错误**：
+```bash
+# 如果生成失败，检查详细错误信息
+goon add user --verbose
+
+# 使用 --dry-run 预览避免错误
+goon add user --dry-run
+
+# 检查项目结构是否正确
+goon list
+```
+
+### 10. 持续集成最佳实践
+
+项目已包含完整的 CI/CD 配置：
+
+- **GitHub Actions** (`.github/workflows/ci.yml`)
+- **代码质量检查** (`.golangci.yml`)
+- **自动化测试**
+- **多平台构建**
+- **自动发布** (`.goreleaser.yml`)
+
+**本地开发流程**：
+```bash
+# 1. 提交前检查
+make lint
+make test
+
+# 2. 提交代码
+git add .
+git commit -m "feat: add new feature"
+
+# 3. 推送触发 CI
+git push origin feature-branch
+
+# 4. 创建 Pull Request
+# CI 会自动运行测试和检查
 ```
 
 ## 常见问题 (FAQ)
